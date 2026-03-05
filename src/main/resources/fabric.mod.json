@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "farmhelperv2",
+  "version": "${version}",
+  "name": "MoreThanEnoughTils",
+  "description": "More Than Enough Tils — a helper for every farmer in Hypixel Skyblock Garden (Fabric 1.21)",
+  "authors": ["You"],
+  "contact": {},
+  "license": "All Rights Reserved",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.jelly.farmhelperv2.FarmHelperFabric"
+    ],
+    "modmenu": [
+      "com.jelly.farmhelperv2.config.ModMenuIntegration"
+    ]
+  },
+  "mixins": [],
+  "depends": {
+    "fabricloader": ">=0.18.0",
+    "minecraft": "~1.21.10",
+    "java": ">=21",
+    "fabric-api": ">=0.138.0+1.21.10"
+  },
+  "suggests": {
+    "modmenu": ">=11.0.0"
+  }
+}

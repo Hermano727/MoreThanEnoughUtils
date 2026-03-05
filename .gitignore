@@ -1,0 +1,26 @@
+# Gradle
+.gradle
+build
+!src/main/resources/
+!src/test/resources/
+
+# Local configuration
+gradle.properties
+local.properties
+
+# IDE (IntelliJ/Eclipse)
+.idea
+*.iml
+.project
+.settings
+.classpath
+.factorypath
+
+# Runtime data (Fabric/Forge)
+run
+/src/main/resources/fabric.mod.json # Only if you generate this file
+/src/main/resources/dependencies.txt # [1]
+
+# Operating System Files
+.DS_Store
+Thumbs.db
