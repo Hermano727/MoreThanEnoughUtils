@@ -6,17 +6,21 @@ import com.jelly.farmhelperv2.macro.Macro;
 import com.jelly.farmhelperv2.macro.SShapeVerticalCropMacro;
 import com.jelly.farmhelperv2.pests.PestsDestroyer;
 import com.jelly.farmhelperv2.skyblock.AutoExperiments;
+import com.jelly.farmhelperv2.skyblock.ScoreboardAreaReader;
+import com.jelly.farmhelperv2.util.ChatUtils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.GameOptions;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Client-side state and controls for the MoreThanEnoughUtils 1.21 Fabric port.
@@ -42,6 +46,11 @@ public final class FarmHelperClient {
 
     private static final long ALARM_COOLDOWN_MS = 1500L;
     private static final float ROTATION_EPSILON_DEGREES = 0.5f;
+
+    /** Max number of chat shortcut slots; keybinds are registered once at init and cannot be re-registered. */
+    private static final int MAX_CHAT_SHORTCUTS = 20;
+    private static final List<KeyBinding> chatShortcutKeyBindings = new ArrayList<>(MAX_CHAT_SHORTCUTS);
+    private static ScoreboardAreaReader.Area lastArea = ScoreboardAreaReader.Area.UNKNOWN;
 
     private FarmHelperClient() {
     }
@@ -82,6 +91,19 @@ public final class FarmHelperClient {
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             if (mc.player == null) return;
 
+            // Debug: log and show when our inferred SkyBlock area changes.
+            ScoreboardAreaReader.Area currentArea = ScoreboardAreaReader.getCurrentArea(mc);
+            if (currentArea != lastArea) {
+                FarmHelperFabric.LOGGER.info("MTEU area changed: {} -> {}", lastArea, currentArea);
+                if (mc.player != null) {
+                    mc.player.sendMessage(
+                            ChatUtils.info("Area changed: " + lastArea + " \u2192 " + currentArea),
+                            false
+                    );
+                }
+                lastArea = currentArea;
+            }
+
             // Handle keybind presses.
             handleToggleKey(mc);
             handleOpenGuiKey(mc);
@@ -89,8 +111,13 @@ public final class FarmHelperClient {
 
             // Drive the active macro every tick while enabled.
             if (enabled && currentMacro != null) {
-                currentMacro.onTick(mc);
-                enforceRotationLock(mc);
+                // Area failsafe: only run macros in the Garden/barn area.
+                if (!ScoreboardAreaReader.isInGarden(mc)) {
+                    disableMacro(mc, ChatUtils.warning("Macro disabled: left Garden area"));
+                } else {
+                    currentMacro.onTick(mc);
+                    enforceRotationLock(mc);
+                }
             } else {
                 rotationLockActive = false;
             }
@@ -108,8 +135,25 @@ public final class FarmHelperClient {
                     FarmHelperFabric.LOGGER.error("AutoExperiments: Uncaught error in onClientTick", t);
                 }
             }
+
+            // Consume dirty flag (config was saved); we do NOT re-register keybinds — Fabric only allows that at init.
+            ModConfig.consumeChatShortcutsDirty();
+
+            handleChatShortcutKeys(mc);
         });
 
+        // Disable macros on server reboot warnings in chat.
+        ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
+            String text = message.getString();
+            if (text.contains("Scheduled Reboot") || text.contains("server will restart soon")) {
+                MinecraftClient mc = MinecraftClient.getInstance();
+                if (mc != null && enabled && currentMacro != null) {
+                    disableMacro(mc, ChatUtils.error("Macro disabled: server reboot scheduled"));
+                }
+            }
+        });
+
+        registerChatShortcutKeyBindingsOnce();
     }
 
     private static void handleToggleKey(MinecraftClient mc) {
@@ -117,29 +161,26 @@ public final class FarmHelperClient {
             // Turning on Pest Destroyer and the macro at the same time can cause
             // conflicting movement; for now, prefer the macro and leave Pest
             // Destroyer as a separate helper.
-            enabled = !enabled;
-            Text message = Text.literal("[MTEU] Macro " + (enabled ? "enabled" : "disabled"));
-            mc.player.sendMessage(message, false);
-            FarmHelperFabric.LOGGER.info("MTEU main toggle set to {}", enabled);
-
-            if (enabled) {
+            boolean newValue = !enabled;
+            if (newValue) {
                 // For now, always run SShapeVerticalCropMacro when enabled.
+                enabled = true;
                 currentMacro = new SShapeVerticalCropMacro();
                 currentMacro.onEnable(mc);
                 captureRotationLock(mc);
-            } else {
-                if (currentMacro != null) {
-                    currentMacro.onDisable(mc);
-                    currentMacro = null;
+                if (mc.player != null) {
+                    mc.player.sendMessage(ChatUtils.success("Macro enabled"), false);
                 }
-                rotationLockActive = false;
+            } else {
+                disableMacro(mc, ChatUtils.warning("Macro disabled"));
             }
+            FarmHelperFabric.LOGGER.info("MTEU main toggle set to {}", enabled);
         }
     }
 
     private static void handleOpenGuiKey(MinecraftClient mc) {
         while (openGuiKeyBinding.wasPressed()) {
-            FarmHelperConfigScreen.open(null);
+            mc.setScreen(FarmHelperConfigScreen.create(mc.currentScreen));
         }
     }
 
@@ -149,9 +190,36 @@ public final class FarmHelperClient {
             ModConfig.setPestDestroyerEnabled(newValue);
             ModConfig.save();
 
-            Text message = Text.literal("Pest Destroyer: " + (newValue ? "enabled" : "disabled"));
-            mc.player.sendMessage(message, false);
+            if (mc.player != null) {
+                mc.player.sendMessage(
+                        newValue
+                                ? ChatUtils.success("Pest Destroyer enabled")
+                                : ChatUtils.warning("Pest Destroyer disabled"),
+                        false
+                );
+            }
             FarmHelperFabric.LOGGER.info("Pest Destroyer toggle set to {}", newValue);
+        }
+    }
+
+    /**
+     * Registers a fixed number of chat shortcut keybinds once at init.
+     * Fabric does not allow registering keybinds after GameOptions has been initialised,
+     * so we register MAX_CHAT_SHORTCUTS slots; each slot sends the message at that index when pressed.
+     */
+    private static void registerChatShortcutKeyBindingsOnce() {
+        chatShortcutKeyBindings.clear();
+        for (int i = 0; i < MAX_CHAT_SHORTCUTS; i++) {
+            int index = i + 1;
+            KeyBinding binding = KeyBindingHelper.registerKeyBinding(
+                    new KeyBinding(
+                            "key.farmhelperv2.chat_shortcut." + index,
+                            InputUtil.Type.KEYSYM,
+                            InputUtil.UNKNOWN_KEY.getCode(),
+                            KeyBinding.Category.MISC
+                    )
+            );
+            chatShortcutKeyBindings.add(binding);
         }
     }
 
@@ -206,8 +274,42 @@ public final class FarmHelperClient {
         }
     }
 
+    private static void handleChatShortcutKeys(MinecraftClient mc) {
+        if (mc.player == null) return;
+        List<ModConfig.ChatShortcut> shortcuts = ModConfig.getChatShortcuts();
+        for (int i = 0; i < chatShortcutKeyBindings.size() && i < shortcuts.size(); i++) {
+            KeyBinding binding = chatShortcutKeyBindings.get(i);
+            while (binding.wasPressed()) {
+                String message = shortcuts.get(i).message;
+                if (message != null && !message.isEmpty()) {
+                    mc.getNetworkHandler().sendChatMessage(message);
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns the list of chat shortcut keybindings for use by the config screen
+     * (e.g. to display and set keybinds in the GUI). Do not modify the list.
+     */
+    public static List<KeyBinding> getChatShortcutKeyBindings() {
+        return chatShortcutKeyBindings;
+    }
+
     public static boolean isEnabled() {
         return enabled;
+    }
+
+    private static void disableMacro(MinecraftClient mc, Text reason) {
+        enabled = false;
+        if (currentMacro != null) {
+            currentMacro.onDisable(mc);
+            currentMacro = null;
+        }
+        rotationLockActive = false;
+        if (mc.player != null && reason != null) {
+            mc.player.sendMessage(reason, false);
+        }
     }
 }
 

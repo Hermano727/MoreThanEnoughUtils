@@ -47,11 +47,6 @@ public final class AutoExperiments {
     private static int lastAddedSlotId = 0;
     private static int clicks = 0;
 
-    private static Item lastChronoCenterItem = null;
-    private static Item lastUltraCenterItem = null;
-
-    private static Boolean lastLoggedConfigEnabled = null;
-
     private AutoExperiments() {
     }
 
@@ -60,9 +55,6 @@ public final class AutoExperiments {
             reset();
             return;
         }
-
-        boolean configEnabled = ModConfig.isAutoExperimentsEnabled();
-        lastLoggedConfigEnabled = configEnabled;
 
         Screen screen = mc.currentScreen;
         if (screen == null) {
@@ -96,8 +88,6 @@ public final class AutoExperiments {
         hasAdded = false;
         lastAddedSlotId = 0;
         clicks = 0;
-        lastChronoCenterItem = null;
-        lastUltraCenterItem = null;
     }
 
     private static void solveChronomatron(MinecraftClient mc, ScreenHandler handler, List<Slot> slots, String title) {
@@ -110,11 +100,6 @@ public final class AutoExperiments {
         Slot centerSlot = slots.get(49);
         ItemStack centerStack = centerSlot.getStack();
         Item centerItem = centerStack.getItem();
-
-        if (centerItem != lastChronoCenterItem) {
-            Identifier id = Registries.ITEM.getId(centerItem);
-            lastChronoCenterItem = centerItem;
-        }
 
         if (centerItem == Blocks.GLOWSTONE.asItem()
                 && lastAddedSlotId >= 0
@@ -171,10 +156,6 @@ public final class AutoExperiments {
         Slot centerSlot = slots.get(49);
         ItemStack centerStack = centerSlot.getStack();
         Item centerItem = centerStack.getItem();
-
-        if (centerItem != lastUltraCenterItem) {
-            lastUltraCenterItem = centerItem;
-        }
 
         if (centerItem == Items.CLOCK) {
             hasAdded = false;

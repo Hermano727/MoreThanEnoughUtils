@@ -3,16 +3,17 @@ package com.jelly.farmhelperv2.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.jelly.farmhelperv2.FarmHelperFabric;
+import com.jelly.farmhelperv2.util.ChatUtils;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
-import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Persistent config for MoreThanEnoughUtils 1.21.
@@ -37,6 +38,10 @@ public final class ModConfig {
     private static boolean autoExperimentsEnabled = false;
     /** Delay between Auto Experiments clicks, in milliseconds. */
     private static int autoExperimentsClickDelayMs = 500;
+
+    // Chat shortcuts
+    private static final List<ChatShortcut> chatShortcuts = new ArrayList<>();
+    private static boolean chatShortcutsDirty = false;
 
     private ModConfig() {
     }
@@ -97,10 +102,10 @@ public final class ModConfig {
         autoExperimentsEnabled = enabled;
         MinecraftClient client = MinecraftClient.getInstance();
         if (client != null && client.player != null) {
-            client.player.sendMessage(
-                    Text.literal("[MTEU] Auto Experiments " + (enabled ? "ENABLED" : "DISABLED")),
-                    false
-            );
+            Text msg = enabled
+                    ? ChatUtils.success("Auto Experiments ENABLED")
+                    : ChatUtils.warning("Auto Experiments DISABLED");
+            client.player.sendMessage(msg, false);
         }
     }
 
@@ -109,10 +114,68 @@ public final class ModConfig {
     }
 
     public static void setAutoExperimentsClickDelayMs(int delayMs) {
-        // Simple safety clamp.
         if (delayMs < 50) delayMs = 50;
         if (delayMs > 2000) delayMs = 2000;
         autoExperimentsClickDelayMs = delayMs;
+    }
+
+    public static List<ChatShortcut> getChatShortcuts() {
+        return Collections.unmodifiableList(chatShortcuts);
+    }
+
+    public static void setChatShortcuts(List<ChatShortcut> newShortcuts) {
+        chatShortcuts.clear();
+        if (newShortcuts != null) {
+            chatShortcuts.addAll(newShortcuts);
+        }
+        chatShortcutsDirty = true;
+    }
+
+    /**
+     * Returns a mutable list of messages for use in the YACL list editor.
+     */
+    public static List<String> getChatShortcutMessages() {
+        List<String> messages = new ArrayList<>(chatShortcuts.size());
+        for (ChatShortcut shortcut : chatShortcuts) {
+            messages.add(shortcut.message != null ? shortcut.message : "");
+        }
+        return messages;
+    }
+
+    /**
+     * Applies a list of messages coming back from the YACL list editor.
+     * Preserves existing ids and key codes by index where possible.
+     */
+    public static void applyChatShortcutMessages(List<String> messages) {
+        List<ChatShortcut> rebuilt = new ArrayList<>();
+        if (messages != null) {
+            for (int i = 0; i < messages.size(); i++) {
+                String msg = messages.get(i);
+                if (msg == null || msg.trim().isEmpty()) {
+                    continue;
+                }
+                ChatShortcut existing = i < chatShortcuts.size() ? chatShortcuts.get(i) : null;
+                ChatShortcut s = new ChatShortcut();
+                s.id = existing != null ? existing.id : (i + 1);
+                s.keyCode = existing != null ? existing.keyCode : 0;
+                s.label = existing != null && existing.label != null && !existing.label.isEmpty()
+                        ? existing.label
+                        : "Shortcut #" + s.id;
+                s.message = msg;
+                rebuilt.add(s);
+            }
+        }
+        chatShortcuts.clear();
+        chatShortcuts.addAll(rebuilt);
+        chatShortcutsDirty = true;
+    }
+
+    public static boolean consumeChatShortcutsDirty() {
+        if (!chatShortcutsDirty) {
+            return false;
+        }
+        chatShortcutsDirty = false;
+        return true;
     }
 
     public static void load() {
@@ -130,6 +193,10 @@ public final class ModConfig {
                 if (data.pestDestroyerKeyCode != 0) pestDestroyerKeyCode = data.pestDestroyerKeyCode;
                 autoExperimentsEnabled = data.autoExperimentsEnabled;
                 if (data.autoExperimentsClickDelayMs > 0) autoExperimentsClickDelayMs = data.autoExperimentsClickDelayMs;
+                if (data.chatShortcuts != null) {
+                    chatShortcuts.clear();
+                    chatShortcuts.addAll(data.chatShortcuts);
+                }
             }
         } catch (Exception e) {
             FarmHelperFabric.LOGGER.warn("Failed to load config from {}", configPath, e);
@@ -148,28 +215,28 @@ public final class ModConfig {
             data.pestDestroyerKeyCode = pestDestroyerKeyCode;
             data.autoExperimentsEnabled = autoExperimentsEnabled;
             data.autoExperimentsClickDelayMs = autoExperimentsClickDelayMs;
+            data.chatShortcuts = new ArrayList<>(chatShortcuts);
             Files.writeString(configPath, GSON.toJson(data));
         } catch (IOException e) {
             FarmHelperFabric.LOGGER.warn("Failed to save config to {}", configPath, e);
         }
     }
 
-    /** Updates a KeyBinding's bound key from a GLFW key code. */
-    public static void applyKeyToBinding(KeyBinding binding, int keyCode) {
-        if (keyCode == 0) {
-            binding.setBoundKey(InputUtil.UNKNOWN_KEY);
-        } else {
-            binding.setBoundKey(InputUtil.fromKeyCode(new KeyInput(keyCode, 0, 0)));
-        }
+    public static class Data {
+        public int mainToggleKeyCode;
+        public int openGuiKeyCode;
+        public String cropTypeName;
+        public boolean pestDestroyerEnabled;
+        public int pestDestroyerKeyCode;
+        public boolean autoExperimentsEnabled;
+        public int autoExperimentsClickDelayMs;
+        public List<ChatShortcut> chatShortcuts;
     }
 
-    public static class Data {
-        public int mainToggleKeyCode = GLFW.GLFW_KEY_H;
-        public int openGuiKeyCode = GLFW.GLFW_KEY_F;
-        public String cropTypeName = CropMacroType.S_SHAPE_VERTICAL.name();
-        public boolean pestDestroyerEnabled = false;
-        public int pestDestroyerKeyCode = GLFW.GLFW_KEY_P;
-        public boolean autoExperimentsEnabled = false;
-        public int autoExperimentsClickDelayMs = 500;
+    public static class ChatShortcut {
+        public int id;
+        public String label;
+        public String message;
+        public int keyCode;
     }
 }

@@ -9,9 +9,9 @@ import net.minecraft.client.gui.widget.CheckboxWidget;
 import net.minecraft.text.Text;
 
 /**
- * Vanilla config screen for MoreThanEnoughTils (no LibGui).
+ * Vanilla config screen for MoreThanEnoughUtils (no LibGui).
  */
-public final class MoreThanEnoughTilsConfigScreen extends Screen {
+public final class MoreThanEnoughUtilsConfigScreen extends Screen {
 
     private static final int[] DELAY_PRESETS_MS = { 50, 100, 250, 500, 750, 1000, 1500, 2000 };
 
@@ -21,8 +21,8 @@ public final class MoreThanEnoughTilsConfigScreen extends Screen {
     private ButtonWidget cropTypeButton;
     private ButtonWidget delayButton;
 
-    public MoreThanEnoughTilsConfigScreen(Screen parent) {
-        super(Text.literal("MoreThanEnoughTils Config"));
+    public MoreThanEnoughUtilsConfigScreen(Screen parent) {
+        super(Text.literal("MoreThanEnoughUtils Config"));
         this.parent = parent;
     }
 
@@ -77,17 +77,11 @@ public final class MoreThanEnoughTilsConfigScreen extends Screen {
                 Text.literal("Click Delay: " + ModConfig.getAutoExperimentsClickDelayMs() + " ms"),
                 b -> {
                     int current = ModConfig.getAutoExperimentsClickDelayMs();
-                    int idx = 0;
-                    for (int i = 0; i < DELAY_PRESETS_MS.length; i++) {
-                        if (DELAY_PRESETS_MS[i] >= current) {
-                            idx = i;
-                            break;
-                        }
-                        idx = i + 1;
-                    }
-                    if (idx >= DELAY_PRESETS_MS.length) idx = DELAY_PRESETS_MS.length - 1;
-                    idx = (idx + 1) % DELAY_PRESETS_MS.length;
-                    int next = DELAY_PRESETS_MS[idx];
+                    int currentIdx = 0;
+                    while (currentIdx < DELAY_PRESETS_MS.length && DELAY_PRESETS_MS[currentIdx] < current) currentIdx++;
+                    if (currentIdx >= DELAY_PRESETS_MS.length) currentIdx = DELAY_PRESETS_MS.length - 1;
+                    int nextIdx = (currentIdx + 1) % DELAY_PRESETS_MS.length;
+                    int next = DELAY_PRESETS_MS[nextIdx];
                     ModConfig.setAutoExperimentsClickDelayMs(next);
                     ModConfig.save();
                     delayButton.setMessage(Text.literal("Click Delay: " + next + " ms"));
@@ -127,14 +121,6 @@ public final class MoreThanEnoughTilsConfigScreen extends Screen {
 
     private static CropMacroType nextCropType(CropMacroType current) {
         CropMacroType[] values = CropMacroType.values();
-        if (values.length == 0) return CropMacroType.S_SHAPE_VERTICAL;
-        int idx = 0;
-        for (int i = 0; i < values.length; i++) {
-            if (values[i] == current) {
-                idx = (i + 1) % values.length;
-                return values[idx];
-            }
-        }
-        return values[0];
+        return values[(current.ordinal() + 1) % values.length];
     }
 }

@@ -1,5 +1,6 @@
 package com.jelly.farmhelperv2.pathfinder;
 
+import com.jelly.farmhelperv2.util.MovementUtils;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.GameOptions;
@@ -52,13 +53,7 @@ public final class SimplePathfinder {
             return;
         }
         GameOptions options = client.options;
-        options.forwardKey.setPressed(false);
-        options.backKey.setPressed(false);
-        options.leftKey.setPressed(false);
-        options.rightKey.setPressed(false);
-        options.sprintKey.setPressed(false);
-        options.attackKey.setPressed(false);
-        options.useKey.setPressed(false);
+        MovementUtils.stopAll(options);
     }
 }
 

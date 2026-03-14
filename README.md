@@ -1,4 +1,4 @@
-# MoreThanEnoughTils — Fabric 1.21
+# MoreThanEnoughUtils — Fabric 1.21
 
 This folder is the **Fabric 1.21** port of **MoreThanEnoughUtils** (MTEU). It is a separate Gradle project from the 1.8.9 Forge version.
 
@@ -11,7 +11,7 @@ This folder is the **Fabric 1.21** port of **MoreThanEnoughUtils** (MTEU). It is
 ## Build & run
 
 **Option A — From this folder (standalone)**  
-Open this folder (`MoreThanEnoughTils`) as the project root in your IDE or terminal.
+Open this folder (`MoreThanEnoughUtils`) as the project root in your IDE or terminal.
 
 1. Generate the Gradle wrapper (one time, if you have Gradle installed):
    ```bash

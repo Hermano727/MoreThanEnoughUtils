@@ -22,14 +22,12 @@ public class FarmHelperFabric implements ClientModInitializer {
     public void onInitializeClient() {
         LOGGER.info("MoreThanEnoughUtils v{} (Fabric 1.21) loaded. Migration in progress — see MIGRATION_ROADMAP.md", VERSION);
 
-        // Set up config path and load persisted options.
         Path configPath = FabricLoader.getInstance()
                 .getConfigDir()
                 .resolve(MOD_ID + ".json");
         ModConfig.setConfigPath(configPath);
         ModConfig.load();
 
-        // Phase 2: register events, commands, keybinds here.
         FarmHelperClient.init();
     }
 }

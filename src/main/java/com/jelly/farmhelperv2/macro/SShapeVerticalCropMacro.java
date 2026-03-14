@@ -1,11 +1,10 @@
 package com.jelly.farmhelperv2.macro;
 
-import com.jelly.farmhelperv2.FarmHelperFabric;
+import com.jelly.farmhelperv2.util.ChatUtils;
+import com.jelly.farmhelperv2.util.MovementUtils;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.GameOptions;
-import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 
 /**
@@ -17,15 +16,22 @@ public class SShapeVerticalCropMacro implements Macro {
     private static boolean nextStartLeft = true;
 
     private boolean goingLeft = true;
-    private int debugCounter = 0;
-    private int directionChangeCooldownTicks = 0;
-    private static final int DIRECTION_CHANGE_COOLDOWN_TICKS = 20;
-    private boolean pendingDirectionChange = false;
+
+    private enum DirectionState {
+        NORMAL,
+        HOLD_SIDE,
+        PAUSE_BEFORE_SWITCH
+    }
+
+    private DirectionState directionState = DirectionState.NORMAL;
+    private int stateTicks = 0;
+    private static final int HOLD_TICKS = 10;  // ~0.5s at 20 TPS
+    private static final int PAUSE_TICKS = 10; // ~0.5s at 20 TPS
 
     @Override
     public void onEnable(MinecraftClient client) {
-        directionChangeCooldownTicks = 0;
-        pendingDirectionChange = false;
+        directionState = DirectionState.NORMAL;
+        stateTicks = 0;
         goingLeft = nextStartLeft;
         nextStartLeft = !nextStartLeft;
 
@@ -47,7 +53,10 @@ public class SShapeVerticalCropMacro implements Macro {
         options.rightKey.setPressed(!goingLeft);
 
         if (client.player != null) {
-            client.player.sendMessage(Text.literal("[MTEU] S-Shape Vertical macro ENABLED (holding " + (goingLeft ? "A" : "D") + ")"), false);
+            client.player.sendMessage(
+                    ChatUtils.success("S-Shape Vertical macro ENABLED (holding " + (goingLeft ? "A" : "D") + ")"),
+                    false
+            );
         }
     }
 
@@ -59,33 +68,55 @@ public class SShapeVerticalCropMacro implements Macro {
 
         GameOptions options = client.options;
 
-        // Core movement: always walk forward and attack, strafe left/right depending on
-        // state.
         options.attackKey.setPressed(true);
         options.sprintKey.setPressed(true);
+        boolean left = goingLeft;
+        boolean right = !goingLeft;
 
-        options.leftKey.setPressed(goingLeft);
-        options.rightKey.setPressed(!goingLeft);
-
-        if (directionChangeCooldownTicks > 0) {
-            directionChangeCooldownTicks--;
-            if (directionChangeCooldownTicks == 0 && pendingDirectionChange) {
-                goingLeft = !goingLeft;
-                pendingDirectionChange = false;
-                if (client.player != null) {
-                    client.player.sendMessage(
-                            Text.literal("[MTEU] S-Shape: switching direction to " + (goingLeft ? "LEFT (A)" : "RIGHT (D)")),
-                            false);
+        switch (directionState) {
+            case NORMAL: {
+                options.leftKey.setPressed(left);
+                options.rightKey.setPressed(right);
+                if (isStrafingSideBlocked(client, goingLeft)) {
+                    directionState = DirectionState.HOLD_SIDE;
+                    stateTicks = 0;
+                    if (client.player != null) {
+                        client.player.sendMessage(
+                                ChatUtils.info("S-Shape: side block hit, keeping " + (goingLeft ? "A" : "D") + " for 0.5s"),
+                                false
+                        );
+                    }
                 }
             }
-        } else if (isStrafingSideBlocked(client, goingLeft)) {
-            pendingDirectionChange = true;
-            directionChangeCooldownTicks = DIRECTION_CHANGE_COOLDOWN_TICKS;
-            if (client.player != null) {
-                client.player.sendMessage(
-                        Text.literal("[MTEU] S-Shape: side block hit, keeping " + (goingLeft ? "A" : "D") + " for 1s then switching"),
-                        false);
+            break;
+            case HOLD_SIDE: {
+                options.leftKey.setPressed(left);
+                options.rightKey.setPressed(right);
+                stateTicks++;
+                if (stateTicks >= HOLD_TICKS) {
+                    directionState = DirectionState.PAUSE_BEFORE_SWITCH;
+                    stateTicks = 0;
+                }
             }
+            break;
+            case PAUSE_BEFORE_SWITCH: {
+                // Pause strafing for a brief moment before switching.
+                options.leftKey.setPressed(false);
+                options.rightKey.setPressed(false);
+                stateTicks++;
+                if (stateTicks >= PAUSE_TICKS) {
+                    goingLeft = !goingLeft;
+                    directionState = DirectionState.NORMAL;
+                    stateTicks = 0;
+                    if (client.player != null) {
+                        client.player.sendMessage(
+                                ChatUtils.info("S-Shape: switching direction to " + (goingLeft ? "LEFT (A)" : "RIGHT (D)")),
+                                false
+                        );
+                    }
+                }
+            }
+            break;
         }
     }
 
@@ -93,13 +124,13 @@ public class SShapeVerticalCropMacro implements Macro {
     public void onDisable(MinecraftClient client) {
         GameOptions options = client.options;
 
-        options.attackKey.setPressed(false);
-        options.sprintKey.setPressed(false);
-        options.leftKey.setPressed(false);
-        options.rightKey.setPressed(false);
+        MovementUtils.stopAll(options);
 
         if (client.player != null) {
-            client.player.sendMessage(Text.literal("[MTEU] S-Shape Vertical macro DISABLED"), false);
+            client.player.sendMessage(
+                    ChatUtils.warning("S-Shape Vertical macro DISABLED"),
+                    false
+            );
         }
     }
 
@@ -108,10 +139,7 @@ public class SShapeVerticalCropMacro implements Macro {
      * where the player is currently facing.
      */
     private static float snapYawToNearestFarmDirection(float yaw) {
-        float normalized = yaw % 360.0f;
-        if (normalized < 0.0f) {
-            normalized += 360.0f;
-        }
+        float normalized = normalizeYaw360(yaw);
 
         float distTo0 = Math.min(normalized, 360.0f - normalized);
         float distTo180 = Math.abs(normalized - 180.0f);
@@ -124,11 +152,19 @@ public class SShapeVerticalCropMacro implements Macro {
      * (south) rather than -Z (north).
      */
     private static boolean isFacingPositiveZ(float yaw) {
+        float normalized = normalizeYaw360(yaw);
+        return normalized < 90.0f || normalized > 270.0f;
+    }
+
+    /**
+     * Normalizes a yaw angle to the range [0, 360).
+     */
+    private static float normalizeYaw360(float yaw) {
         float normalized = yaw % 360.0f;
         if (normalized < 0.0f) {
             normalized += 360.0f;
         }
-        return normalized < 90.0f || normalized > 270.0f;
+        return normalized;
     }
 
     /**

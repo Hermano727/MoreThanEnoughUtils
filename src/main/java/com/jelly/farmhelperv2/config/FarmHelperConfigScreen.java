@@ -1,29 +1,24 @@
 package com.jelly.farmhelperv2.config;
 
-import com.jelly.farmhelperv2.gui.config.MoreThanEnoughTilsConfigScreen;
-import net.minecraft.client.MinecraftClient;
+import dev.isxander.yacl3.api.YetAnotherConfigLib;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.text.Text;
 
 /**
  * Config screen entrypoint for the 1.21 Fabric port.
- * Uses vanilla Minecraft screens (no LibGui).
+ * Now uses a YACL-generated config screen.
  */
 public final class FarmHelperConfigScreen {
 
     private FarmHelperConfigScreen() {
     }
 
-    /**
-     * Creates a new config screen instance.
-     */
     public static Screen create(Screen parent) {
-        return new MoreThanEnoughTilsConfigScreen(parent);
-    }
-
-    /**
-     * Opens the MoreThanEnoughUtils config screen.
-     */
-    public static void open(Screen parent) {
-        MinecraftClient.getInstance().setScreen(create(parent));
+        return YetAnotherConfigLib.createBuilder()
+                .title(Text.literal("MoreThanEnoughUtils"))
+                .category(ModOptions::category)
+                .save(ModConfig::save)
+                .build()
+                .generateScreen(parent);
     }
 }
