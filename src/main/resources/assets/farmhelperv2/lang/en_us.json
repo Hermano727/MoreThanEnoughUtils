@@ -1,5 +1,6 @@
 {
-  "key.farmhelperv2.toggle": "Toggle Macro",
+  "key.category.farmhelperv2.mteu": "MoreThanEnoughUtils",
+  "key.farmhelperv2.toggle": "Toggle Farm Macro",
   "key.farmhelperv2.open_config": "Open MTEU Config",
   "key.farmhelperv2.pests_toggle": "Toggle Pest Destroyer",
   "key.farmhelperv2.chat_shortcut.1": "MTEU Chat Shortcut 1",

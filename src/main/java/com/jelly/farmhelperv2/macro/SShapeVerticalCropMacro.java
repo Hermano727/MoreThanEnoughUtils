@@ -25,19 +25,28 @@ public class SShapeVerticalCropMacro implements Macro {
 
     private DirectionState directionState = DirectionState.NORMAL;
     private int stateTicks = 0;
-    private static final int HOLD_TICKS = 10;  // ~0.5s at 20 TPS
-    private static final int PAUSE_TICKS = 10; // ~0.5s at 20 TPS
+    /** Ticks after a direction swap during which we do not check for side block (avoids immediate re-detect oscillation). */
+    private int postSwapCooldownTicks = 0;
+    /** Ticks after macro enable during which we do not check for side block (avoids confusion when starting while hugging a block). */
+    private int initialGraceTicks = 0;
+
+    private static final int HOLD_TICKS = 5;   // ~0.25s at 20 TPS
+    private static final int PAUSE_TICKS = 5;  // ~0.25s at 20 TPS
+    private static final int POST_SWAP_COOLDOWN_TICKS = 10; // ~0.5s at 20 TPS
+    private static final int INITIAL_GRACE_TICKS = 40;      // ~2s at 20 TPS
 
     @Override
     public void onEnable(MinecraftClient client) {
         directionState = DirectionState.NORMAL;
         stateTicks = 0;
+        postSwapCooldownTicks = 0;
+        initialGraceTicks = INITIAL_GRACE_TICKS;
         goingLeft = nextStartLeft;
         nextStartLeft = !nextStartLeft;
 
         if (client.player != null) {
             float currentYaw = client.player.getYaw();
-            float targetYaw = snapYawToNearestFarmDirection(currentYaw);
+            float targetYaw = snapYawToNearest90(currentYaw);
             float targetPitch = 0.0f;
 
             client.player.setYaw(targetYaw);
@@ -77,12 +86,16 @@ public class SShapeVerticalCropMacro implements Macro {
             case NORMAL: {
                 options.leftKey.setPressed(left);
                 options.rightKey.setPressed(right);
-                if (isStrafingSideBlocked(client, goingLeft)) {
+                if (initialGraceTicks > 0) {
+                    initialGraceTicks--;
+                } else if (postSwapCooldownTicks > 0) {
+                    postSwapCooldownTicks--;
+                } else if (isStrafingSideBlocked(client, goingLeft)) {
                     directionState = DirectionState.HOLD_SIDE;
                     stateTicks = 0;
                     if (client.player != null) {
                         client.player.sendMessage(
-                                ChatUtils.info("S-Shape: side block hit, keeping " + (goingLeft ? "A" : "D") + " for 0.5s"),
+                                ChatUtils.info("S-Shape: side block hit, keeping " + (goingLeft ? "A" : "D") + " for 0.25s"),
                                 false
                         );
                     }
@@ -108,6 +121,7 @@ public class SShapeVerticalCropMacro implements Macro {
                     goingLeft = !goingLeft;
                     directionState = DirectionState.NORMAL;
                     stateTicks = 0;
+                    postSwapCooldownTicks = POST_SWAP_COOLDOWN_TICKS;
                     if (client.player != null) {
                         client.player.sendMessage(
                                 ChatUtils.info("S-Shape: switching direction to " + (goingLeft ? "LEFT (A)" : "RIGHT (D)")),
@@ -135,25 +149,16 @@ public class SShapeVerticalCropMacro implements Macro {
     }
 
     /**
-     * Snap the yaw to the nearest "farm direction" (0 or 180 degrees) based on
-     * where the player is currently facing.
+     * Snap the yaw to the nearest 90 degrees (0, 90, 180, 270) so the macro
+     * works for farms facing any cardinal direction.
      */
-    private static float snapYawToNearestFarmDirection(float yaw) {
+    private static float snapYawToNearest90(float yaw) {
         float normalized = normalizeYaw360(yaw);
-
-        float distTo0 = Math.min(normalized, 360.0f - normalized);
-        float distTo180 = Math.abs(normalized - 180.0f);
-
-        return distTo0 <= distTo180 ? 0.0f : 180.0f;
-    }
-
-    /**
-     * Returns true if the given yaw corresponds to looking roughly towards +Z
-     * (south) rather than -Z (north).
-     */
-    private static boolean isFacingPositiveZ(float yaw) {
-        float normalized = normalizeYaw360(yaw);
-        return normalized < 90.0f || normalized > 270.0f;
+        float nearest = Math.round(normalized / 90.0f) * 90.0f;
+        if (nearest >= 360.0f) {
+            nearest = 0.0f;
+        }
+        return nearest;
     }
 
     /**
@@ -169,29 +174,33 @@ public class SShapeVerticalCropMacro implements Macro {
 
     /**
      * Returns true if there is a solid collision block immediately to the
-     * strafing side of the player, taking into account which way the player is
-     * facing (0 vs 180 degrees).
+     * strafing side of the player, for any cardinal facing (0, 90, 180, 270).
      */
     private boolean isStrafingSideBlocked(MinecraftClient client, boolean checkLeftKey) {
         if (client.player == null || client.world == null)
             return false;
 
         BlockPos base = client.player.getBlockPos();
+        float normalized = normalizeYaw360(client.player.getYaw());
 
-        // Map the current strafe key (left/right) to a world X offset depending on
-        // whether we're facing towards +Z or -Z.
-        boolean facingPositiveZ = isFacingPositiveZ(client.player.getYaw());
-        int dx;
-        if (facingPositiveZ) {
-            dx = checkLeftKey ? 1 : -1;
+        // World offset for the block to the left or right of the player depending on facing.
+        // Right-hand rule: facing +Z (south), left = -X; facing -X (west), left = -Z;
+        // facing -Z (north), left = +X; facing +X (east), left = +Z.
+        int dx = 0;
+        int dz = 0;
+        if (normalized < 45.0f || normalized >= 315.0f) {
+            dx = checkLeftKey ? -1 : 1;   // South: left = -X
+        } else if (normalized >= 45.0f && normalized < 135.0f) {
+            dz = checkLeftKey ? -1 : 1;   // West: left = -Z
+        } else if (normalized >= 135.0f && normalized < 225.0f) {
+            dx = checkLeftKey ? 1 : -1;   // North: left = +X
         } else {
-            dx = checkLeftKey ? -1 : 1;
+            dz = checkLeftKey ? 1 : -1;   // East: left = +Z
         }
 
-        BlockPos sidePos = base.add(dx, 0, 0);
+        BlockPos sidePos = base.add(dx, 0, dz);
 
         BlockState state = client.world.getBlockState(sidePos);
-        // Treat anything with a non-empty collision shape as "blocking".
         boolean solid = !state.getCollisionShape(client.world, sidePos).isEmpty();
 
         return solid;

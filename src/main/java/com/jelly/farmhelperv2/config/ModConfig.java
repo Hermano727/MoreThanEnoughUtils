@@ -25,8 +25,8 @@ public final class ModConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static Path configPath;
 
-    // Main macro
-    private static int mainToggleKeyCode = GLFW.GLFW_KEY_H;
+    // Main macro (0 = unbound by default)
+    private static int mainToggleKeyCode = 0;
     private static int openGuiKeyCode = GLFW.GLFW_KEY_F;
     private static String cropTypeName = CropMacroType.S_SHAPE_VERTICAL.name();
 

@@ -18,6 +18,7 @@ import net.minecraft.client.util.InputUtil;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +48,9 @@ public final class FarmHelperClient {
     private static final long ALARM_COOLDOWN_MS = 1500L;
     private static final float ROTATION_EPSILON_DEGREES = 0.5f;
 
+    /** Custom keybind category so MTEU keybinds appear under "MoreThanEnoughUtils" in Controls. */
+    private static final KeyBinding.Category MTEU_CATEGORY = new KeyBinding.Category(Identifier.of("farmhelperv2", "mteu"));
+
     /** Max number of chat shortcut slots; keybinds are registered once at init and cannot be re-registered. */
     private static final int MAX_CHAT_SHORTCUTS = 20;
     private static final List<KeyBinding> chatShortcutKeyBindings = new ArrayList<>(MAX_CHAT_SHORTCUTS);
@@ -64,7 +68,7 @@ public final class FarmHelperClient {
                         "key.farmhelperv2.toggle",
                         InputUtil.Type.KEYSYM,
                         ModConfig.getMainToggleKeyCode(),
-                        KeyBinding.Category.MISC
+                        MTEU_CATEGORY
                 )
         );
 
@@ -74,7 +78,7 @@ public final class FarmHelperClient {
                         "key.farmhelperv2.open_config",
                         InputUtil.Type.KEYSYM,
                         ModConfig.getOpenGuiKeyCode(),
-                        KeyBinding.Category.MISC
+                        MTEU_CATEGORY
                 )
         );
 
@@ -84,7 +88,7 @@ public final class FarmHelperClient {
                         "key.farmhelperv2.pests_toggle",
                         InputUtil.Type.KEYSYM,
                         ModConfig.getPestDestroyerKeyCode(),
-                        KeyBinding.Category.MISC
+                        MTEU_CATEGORY
                 )
         );
 
@@ -216,7 +220,7 @@ public final class FarmHelperClient {
                             "key.farmhelperv2.chat_shortcut." + index,
                             InputUtil.Type.KEYSYM,
                             InputUtil.UNKNOWN_KEY.getCode(),
-                            KeyBinding.Category.MISC
+                            MTEU_CATEGORY
                     )
             );
             chatShortcutKeyBindings.add(binding);

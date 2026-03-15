@@ -7,6 +7,7 @@ import dev.isxander.yacl3.api.Option;
 import dev.isxander.yacl3.api.OptionDescription;
 import dev.isxander.yacl3.api.OptionGroup;
 import dev.isxander.yacl3.api.controller.EnumControllerBuilder;
+import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
@@ -29,6 +30,11 @@ public final class ModOptions {
                 .build();
     }
 
+    /**
+     * Chat Shortcuts: one group with a button that opens the unified editor.
+     * Do not add a YACL ListOption here with .option(...) — ListOption must be added
+     * to the category with .group(listOption), not inside an OptionGroup (throws otherwise).
+     */
     private static OptionGroup chatShortcutsGroup() {
         return OptionGroup.createBuilder()
                 .name(Text.literal("Chat Shortcuts"))
@@ -99,6 +105,19 @@ public final class ModOptions {
                                 ModConfig::setAutoExperimentsEnabled
                         )
                         .controller(TickBoxControllerBuilder::create)
+                        .build())
+                .option(Option.<Integer>createBuilder()
+                        .name(Text.literal("Delay between clicks (ms)"))
+                        .description(OptionDescription.of(Text.literal("Minimum time in milliseconds between each pattern click. Lower values are faster but may be less reliable (50–2000 ms).")))
+                        .binding(
+                                500,
+                                ModConfig::getAutoExperimentsClickDelayMs,
+                                ModConfig::setAutoExperimentsClickDelayMs
+                        )
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt)
+                                .range(50, 2000)
+                                .step(50)
+                                .valueFormatter(val -> Text.literal(val + " ms")))
                         .build())
                 .build();
     }
