@@ -49,10 +49,12 @@ public class SShapePumpkinMelonMacro implements Macro {
 
         changeLaneDirection = null;
         applyKeys(client, state);
-        client.player.sendMessage(
-                ChatUtils.success("S-Shape Pumpkin/Melon ENABLED (" + (state == State.LEFT ? "LEFT" : "RIGHT") + ")"),
-                false
-        );
+        if (com.jelly.farmhelperv2.config.ModConfig.isVerboseLogging()) {
+            client.player.sendMessage(
+                    ChatUtils.success("S-Shape Pumpkin/Melon ENABLED (" + (state == State.LEFT ? "LEFT" : "RIGHT") + ")"),
+                    false
+            );
+        }
     }
 
     @Override

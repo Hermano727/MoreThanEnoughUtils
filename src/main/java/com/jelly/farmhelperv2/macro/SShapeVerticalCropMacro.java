@@ -99,10 +99,12 @@ public class SShapeVerticalCropMacro implements Macro {
         options.rightKey.setPressed(!goingLeft);
 
         if (client.player != null) {
-            client.player.sendMessage(
-                    ChatUtils.success("S-Shape Vertical macro ENABLED (holding " + (goingLeft ? "A" : "D") + ")"),
-                    false
-            );
+            if (com.jelly.farmhelperv2.config.ModConfig.isVerboseLogging()) {
+                client.player.sendMessage(
+                        ChatUtils.success("S-Shape Vertical macro ENABLED (holding " + (goingLeft ? "A" : "D") + ")"),
+                        false
+                );
+            }
             String startReason = blockOnRight && blockOnLeft ? " [start: block left+right→alternate]" : blockOnRight ? " [start: block right→left]" : blockOnLeft ? " [start: block left→right]" : " [start: alternate]";
             debugState(client, "state=NORMAL (strafing " + (goingLeft ? "A" : "D") + ")" + startReason);
         }
@@ -213,7 +215,7 @@ public class SShapeVerticalCropMacro implements Macro {
                         postSwapCooldownTicks = POST_SWAP_COOLDOWN_TICKS;
                         debugState(client, "swapping direction → " + (goingLeft ? "LEFT (A)" : "RIGHT (D)"));
                     }
-                    if (client.player != null) {
+                    if (client.player != null && com.jelly.farmhelperv2.config.ModConfig.isVerboseLogging()) {
                         client.player.sendMessage(
                                 ChatUtils.info("S-Shape: switching direction to " + (goingLeft ? "LEFT (A)" : "RIGHT (D)")),
                                 false
@@ -226,7 +228,7 @@ public class SShapeVerticalCropMacro implements Macro {
     }
 
     private void debugState(MinecraftClient client, String message) {
-        if (client.player != null) {
+        if (client.player != null && com.jelly.farmhelperv2.config.ModConfig.isVerboseLogging()) {
             client.player.sendMessage(ChatUtils.info("Vertical: " + message), false);
         }
     }

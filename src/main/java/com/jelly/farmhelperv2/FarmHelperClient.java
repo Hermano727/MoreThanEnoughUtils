@@ -16,6 +16,7 @@ import com.jelly.farmhelperv2.util.ChatUtils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
+import net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.sound.PositionedSoundInstance;
@@ -68,6 +69,12 @@ public final class FarmHelperClient {
     /** Last tick we were standing on a rewarp block; only trigger /warp when we *enter* a rewarp (move onto it). */
     private static boolean wasOnRewarpLastTick = false;
 
+    /** Last time (ms) the player broke a block; used to disable macro when no crop broken for >5s. */
+    private static long lastCropBreakTimeMs = 0L;
+    private static final long NO_CROP_BREAK_TIMEOUT_MS = 5000L;
+    /** World reference when macro was enabled; when it changes we disable (world/dimension change). */
+    private static Object lastWorldRef = null;
+
     private FarmHelperClient() {
     }
 
@@ -107,11 +114,11 @@ public final class FarmHelperClient {
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             if (mc.player == null) return;
 
-            // Debug: log and show when our inferred SkyBlock area changes.
+            // Debug: log and show when our inferred SkyBlock area changes (only in chat if verbose).
             ScoreboardAreaReader.Area currentArea = ScoreboardAreaReader.getCurrentArea(mc);
             if (currentArea != lastArea) {
                 FarmHelperFabric.LOGGER.info("MTEU area changed: {} -> {}", lastArea, currentArea);
-                if (mc.player != null) {
+                if (mc.player != null && ModConfig.isVerboseLogging()) {
                     mc.player.sendMessage(
                             ChatUtils.info("Area changed: " + lastArea + " \u2192 " + currentArea),
                             false
@@ -127,8 +134,16 @@ public final class FarmHelperClient {
 
             // Drive the active macro every tick while enabled.
             if (enabled && currentMacro != null) {
-                // Area failsafe: only run macros in the Garden/barn area.
-                if (!ScoreboardAreaReader.isInGarden(mc)) {
+                // World change: disable (dimension change, left world, etc.).
+                if (lastWorldRef != null && mc.world != lastWorldRef) {
+                    disableMacro(mc, ChatUtils.warning("Macro disabled: world changed"));
+                    lastWorldRef = null;
+                } else if (lastCropBreakTimeMs > 0L && (System.currentTimeMillis() - lastCropBreakTimeMs) > NO_CROP_BREAK_TIMEOUT_MS) {
+                    // No crop broken for >5s: stop macro.
+                    disableMacro(mc, ChatUtils.warning("Macro disabled: no crop broken for 5 seconds"));
+                    lastCropBreakTimeMs = 0L;
+                } else if (!ScoreboardAreaReader.isInGarden(mc)) {
+                    // Area failsafe: only run macros in the Garden/barn area.
                     disableMacro(mc, ChatUtils.warning("Macro disabled: left Garden area"));
                 } else {
                     currentMacro.onTick(mc);
@@ -179,6 +194,13 @@ public final class FarmHelperClient {
             handleChatShortcutKeys(mc);
         });
 
+        // Track block breaks for no-crop-break timeout; disable macro when no break for >5s.
+        ClientPlayerBlockBreakEvents.AFTER.register((world, player, pos, state) -> {
+            if (player != null && player.isMainPlayer() && enabled) {
+                lastCropBreakTimeMs = System.currentTimeMillis();
+            }
+        });
+
         // Disable macros on server reboot warnings in chat.
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             String text = message.getString();
@@ -208,6 +230,8 @@ public final class FarmHelperClient {
                     return;
                 }
                 enabled = true;
+                lastCropBreakTimeMs = System.currentTimeMillis();
+                lastWorldRef = mc.world;
                 currentMacro.onEnable(mc);
                 captureRotationLock(mc);
                 if (mc.player != null) {
@@ -357,6 +381,7 @@ public final class FarmHelperClient {
 
     private static void disableMacro(MinecraftClient mc, Text reason) {
         enabled = false;
+        lastWorldRef = null;
         if (currentMacro != null) {
             currentMacro.onDisable(mc);
             currentMacro = null;

@@ -40,6 +40,9 @@ public final class ModConfig {
     /** Delay between Auto Experiments clicks, in milliseconds. */
     private static int autoExperimentsClickDelayMs = 500;
 
+    // Verbose logging (macro state / area change messages in chat)
+    private static boolean verboseLogging = false;
+
     // Chat shortcuts
     private static final List<ChatShortcut> chatShortcuts = new ArrayList<>();
     private static boolean chatShortcutsDirty = false;
@@ -125,6 +128,14 @@ public final class ModConfig {
         if (delayMs < 50) delayMs = 50;
         if (delayMs > 2000) delayMs = 2000;
         autoExperimentsClickDelayMs = delayMs;
+    }
+
+    public static boolean isVerboseLogging() {
+        return verboseLogging;
+    }
+
+    public static void setVerboseLogging(boolean enabled) {
+        verboseLogging = enabled;
     }
 
     public static List<ChatShortcut> getChatShortcuts() {
@@ -285,6 +296,7 @@ public final class ModConfig {
                 if (data.pestDestroyerKeyCode != 0) pestDestroyerKeyCode = data.pestDestroyerKeyCode;
                 autoExperimentsEnabled = data.autoExperimentsEnabled;
                 if (data.autoExperimentsClickDelayMs > 0) autoExperimentsClickDelayMs = data.autoExperimentsClickDelayMs;
+                verboseLogging = data.verboseLogging;
                 if (data.chatShortcuts != null) {
                     chatShortcuts.clear();
                     chatShortcuts.addAll(data.chatShortcuts);
@@ -308,6 +320,7 @@ public final class ModConfig {
             data.pestDestroyerKeyCode = pestDestroyerKeyCode;
             data.autoExperimentsEnabled = autoExperimentsEnabled;
             data.autoExperimentsClickDelayMs = autoExperimentsClickDelayMs;
+            data.verboseLogging = verboseLogging;
             data.chatShortcuts = new ArrayList<>(chatShortcuts);
             Files.writeString(configPath, GSON.toJson(data));
         } catch (IOException e) {
@@ -323,6 +336,7 @@ public final class ModConfig {
         public int pestDestroyerKeyCode;
         public boolean autoExperimentsEnabled;
         public int autoExperimentsClickDelayMs;
+        public boolean verboseLogging;
         public List<ChatShortcut> chatShortcuts;
     }
 

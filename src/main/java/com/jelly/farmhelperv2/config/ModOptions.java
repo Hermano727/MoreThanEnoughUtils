@@ -42,12 +42,30 @@ public final class ModOptions {
                 .build();
     }
 
-    /** Other section: Enchanting Experiments, Chat Shortcuts. */
+    /** Other section: Logging, Enchanting Experiments, Chat Shortcuts. */
     public static ConfigCategory otherCategory() {
         return ConfigCategory.createBuilder()
                 .name(Text.literal("Other"))
+                .group(loggingGroup())
                 .group(experimentsGroup())
                 .group(chatShortcutsGroup())
+                .build();
+    }
+
+    private static OptionGroup loggingGroup() {
+        return OptionGroup.createBuilder()
+                .name(Text.literal("Logging"))
+                .description(OptionDescription.of(Text.literal("Show macro state and area change messages in chat. When off, only enable/disable and failure reasons are shown.")))
+                .option(Option.<Boolean>createBuilder()
+                        .name(Text.literal("Verbose logging"))
+                        .description(OptionDescription.of(Text.literal("Show macro state changes (e.g. Vertical: ..., S-Shape: switching direction) and area change messages in chat.")))
+                        .binding(
+                                false,
+                                ModConfig::isVerboseLogging,
+                                ModConfig::setVerboseLogging
+                        )
+                        .controller(TickBoxControllerBuilder::create)
+                        .build())
                 .build();
     }
 

@@ -30,7 +30,7 @@ public class SShapeVerticalMelonkingdeMacro extends SShapeVerticalCropMacro impl
             options.attackKey.setPressed(true);
         }
 
-        if (client.player != null) {
+        if (client.player != null && com.jelly.farmhelperv2.config.ModConfig.isVerboseLogging()) {
             client.player.sendMessage(
                     ChatUtils.success("S-Shape Pumpkin/Melon (Melonkingde) ENABLED"),
                     false
