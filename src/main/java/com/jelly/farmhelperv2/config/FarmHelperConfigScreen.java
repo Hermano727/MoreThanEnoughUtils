@@ -16,7 +16,8 @@ public final class FarmHelperConfigScreen {
     public static Screen create(Screen parent) {
         return YetAnotherConfigLib.createBuilder()
                 .title(Text.literal("MoreThanEnoughUtils"))
-                .category(ModOptions::category)
+                .category(ModOptions::farmingCategory)
+                .category(ModOptions::otherCategory)
                 .save(ModConfig::save)
                 .build()
                 .generateScreen(parent);

@@ -20,11 +20,32 @@ public final class ModOptions {
     private ModOptions() {
     }
 
+    /** Single category (legacy); prefer farmingCategory() + otherCategory() for structured GUI. */
     public static ConfigCategory category() {
         return ConfigCategory.createBuilder()
                 .name(Text.literal("MoreThanEnoughUtils"))
                 .group(macroGroup())
+                .group(rewarpGroup())
                 .group(pestsGroup())
+                .group(experimentsGroup())
+                .group(chatShortcutsGroup())
+                .build();
+    }
+
+    /** Farming section: Macro, Rewarp, Pests. Expand to see options. */
+    public static ConfigCategory farmingCategory() {
+        return ConfigCategory.createBuilder()
+                .name(Text.literal("Farming"))
+                .group(macroGroup())
+                .group(rewarpGroup())
+                .group(pestsGroup())
+                .build();
+    }
+
+    /** Other section: Enchanting Experiments, Chat Shortcuts. */
+    public static ConfigCategory otherCategory() {
+        return ConfigCategory.createBuilder()
+                .name(Text.literal("Other"))
                 .group(experimentsGroup())
                 .group(chatShortcutsGroup())
                 .build();
@@ -71,6 +92,57 @@ public final class ModOptions {
                         .controller(option -> EnumControllerBuilder.create(option)
                                 .enumClass(CropMacroType.class)
                                 .valueFormatter(v -> Text.literal(v.getDisplayName())))
+                        .build())
+                .build();
+    }
+
+    private static OptionGroup rewarpGroup() {
+        return OptionGroup.createBuilder()
+                .name(Text.literal("Rewarp"))
+                .description(OptionDescription.of(Text.literal(
+                        "When you walk over any saved rewarp point, /warp garden is run automatically. Add points from your current position; remove the one closest to you."
+                )))
+                .option(ButtonOption.createBuilder()
+                        .name(Text.literal("Add rewarp"))
+                        .description(OptionDescription.of(Text.literal("Save your current block position as a rewarp point. Stand where you want the rewarp, then open config and click this.")))
+                        .action((screen, option) -> {
+                            if (ModConfig.addRewarpAtPlayer()) {
+                                if (MinecraftClient.getInstance().player != null) {
+                                    MinecraftClient.getInstance().player.sendMessage(
+                                            Text.literal("§aAdded rewarp at current position. Points: " + ModConfig.getRewarps().size()),
+                                            false
+                                    );
+                                }
+                            } else {
+                                if (MinecraftClient.getInstance().player != null) {
+                                    MinecraftClient.getInstance().player.sendMessage(
+                                            Text.literal("§cCould not add rewarp (already at a rewarp point or not in world)."),
+                                            false
+                                    );
+                                }
+                            }
+                        })
+                        .build())
+                .option(ButtonOption.createBuilder()
+                        .name(Text.literal("Remove rewarp closest to you"))
+                        .description(OptionDescription.of(Text.literal("Removes the rewarp point nearest to your current position.")))
+                        .action((screen, option) -> {
+                            if (ModConfig.removeClosestRewarp()) {
+                                if (MinecraftClient.getInstance().player != null) {
+                                    MinecraftClient.getInstance().player.sendMessage(
+                                            Text.literal("§aRemoved closest rewarp. Remaining: " + ModConfig.getRewarps().size()),
+                                            false
+                                    );
+                                }
+                            } else {
+                                if (MinecraftClient.getInstance().player != null) {
+                                    MinecraftClient.getInstance().player.sendMessage(
+                                            Text.literal("§cNo rewarps to remove."),
+                                            false
+                                    );
+                                }
+                            }
+                        })
                         .build())
                 .build();
     }

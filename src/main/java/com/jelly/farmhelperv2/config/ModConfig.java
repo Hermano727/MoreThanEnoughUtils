@@ -6,6 +6,7 @@ import com.jelly.farmhelperv2.FarmHelperFabric;
 import com.jelly.farmhelperv2.util.ChatUtils;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.BlockPos;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
@@ -43,6 +44,10 @@ public final class ModConfig {
     private static final List<ChatShortcut> chatShortcuts = new ArrayList<>();
     private static boolean chatShortcutsDirty = false;
 
+    // Rewarp points (persisted to config/farmhelperv2_rewarp.json)
+    private static final List<RewarpPoint> rewarpList = new ArrayList<>();
+    private static Path rewarpPath;
+
     private ModConfig() {
     }
 
@@ -68,6 +73,9 @@ public final class ModConfig {
 
     public static CropMacroType getCropType() {
         try {
+            if ("S_SHAPE_PUMPKIN_MELON_MELONKINGDE".equals(cropTypeName)) {
+                return CropMacroType.S_SHAPE_PUMPKIN_MELON_MELONKINGDE;
+            }
             return CropMacroType.valueOf(cropTypeName);
         } catch (Exception e) {
             return CropMacroType.S_SHAPE_VERTICAL;
@@ -178,6 +186,90 @@ public final class ModConfig {
         return true;
     }
 
+    // ---------- Rewarp ----------
+
+    public static List<RewarpPoint> getRewarps() {
+        return Collections.unmodifiableList(rewarpList);
+    }
+
+    /** Adds current player block position as a rewarp. Returns true if added, false if already present or not in world. */
+    public static boolean addRewarpAtPlayer() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || client.world == null) {
+            return false;
+        }
+        BlockPos pos = client.player.getBlockPos();
+        if (rewarpList.stream().anyMatch(r -> r.isTheSameAs(pos))) {
+            return false;
+        }
+        rewarpList.add(new RewarpPoint(pos));
+        saveRewarps();
+        return true;
+    }
+
+    /** Removes the rewarp closest to the player. Returns true if one was removed. */
+    public static boolean removeClosestRewarp() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || rewarpList.isEmpty()) {
+            return false;
+        }
+        BlockPos pos = client.player.getBlockPos();
+        RewarpPoint closest = null;
+        double closestDist = Double.MAX_VALUE;
+        for (RewarpPoint r : rewarpList) {
+            double d = r.getDistance(pos);
+            if (d < closestDist) {
+                closestDist = d;
+                closest = r;
+            }
+        }
+        if (closest != null) {
+            rewarpList.remove(closest);
+            saveRewarps();
+            return true;
+        }
+        return false;
+    }
+
+    public static void loadRewarps() {
+        if (configPath == null) {
+            return;
+        }
+        rewarpPath = configPath.getParent().resolve("farmhelperv2_rewarp.json");
+        if (!Files.isRegularFile(rewarpPath)) {
+            return;
+        }
+        try {
+            String json = Files.readString(rewarpPath);
+            RewarpPoint[] arr = GSON.fromJson(json, RewarpPoint[].class);
+            rewarpList.clear();
+            if (arr != null) {
+                for (RewarpPoint r : arr) {
+                    if (r != null && (r.x != 0 || r.y != 0 || r.z != 0)) {
+                        rewarpList.add(r);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            FarmHelperFabric.LOGGER.warn("Failed to load rewarps from {}", rewarpPath, e);
+        }
+    }
+
+    public static void saveRewarps() {
+        if (rewarpPath == null && configPath != null) {
+            rewarpPath = configPath.getParent().resolve("farmhelperv2_rewarp.json");
+        }
+        if (rewarpPath == null) {
+            return;
+        }
+        try {
+            Files.createDirectories(rewarpPath.getParent());
+            Files.writeString(rewarpPath, GSON.toJson(rewarpList));
+        } catch (IOException e) {
+            FarmHelperFabric.LOGGER.warn("Failed to save rewarps to {}", rewarpPath, e);
+        }
+    }
+
     public static void load() {
         if (configPath == null || !Files.isRegularFile(configPath)) {
             return;
@@ -198,6 +290,7 @@ public final class ModConfig {
                     chatShortcuts.addAll(data.chatShortcuts);
                 }
             }
+            loadRewarps();
         } catch (Exception e) {
             FarmHelperFabric.LOGGER.warn("Failed to load config from {}", configPath, e);
         }

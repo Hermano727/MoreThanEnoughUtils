@@ -1,10 +1,15 @@
 package com.jelly.farmhelperv2;
 
+import com.jelly.farmhelperv2.config.CropMacroType;
 import com.jelly.farmhelperv2.config.FarmHelperConfigScreen;
 import com.jelly.farmhelperv2.config.ModConfig;
+import com.jelly.farmhelperv2.config.RewarpPoint;
 import com.jelly.farmhelperv2.macro.Macro;
+import com.jelly.farmhelperv2.macro.SShapePumpkinMelonMacro;
 import com.jelly.farmhelperv2.macro.SShapeVerticalCropMacro;
+import com.jelly.farmhelperv2.macro.SShapeVerticalMelonkingdeMacro;
 import com.jelly.farmhelperv2.pests.PestsDestroyer;
+import com.jelly.farmhelperv2.render.RewarpRenderer;
 import com.jelly.farmhelperv2.skyblock.AutoExperiments;
 import com.jelly.farmhelperv2.skyblock.ScoreboardAreaReader;
 import com.jelly.farmhelperv2.util.ChatUtils;
@@ -19,6 +24,7 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +61,12 @@ public final class FarmHelperClient {
     private static final int MAX_CHAT_SHORTCUTS = 20;
     private static final List<KeyBinding> chatShortcutKeyBindings = new ArrayList<>(MAX_CHAT_SHORTCUTS);
     private static ScoreboardAreaReader.Area lastArea = ScoreboardAreaReader.Area.UNKNOWN;
+
+    /** Cooldown after triggering rewarp to avoid spamming /warp garden (ms). */
+    private static final long REWARP_COOLDOWN_MS = 10_000;
+    private static long lastRewarpTriggerTime = 0;
+    /** Last tick we were standing on a rewarp block; only trigger /warp when we *enter* a rewarp (move onto it). */
+    private static boolean wasOnRewarpLastTick = false;
 
     private FarmHelperClient() {
     }
@@ -140,6 +152,27 @@ public final class FarmHelperClient {
                 }
             }
 
+            // Rewarp: only when player *moves onto* a saved point (not when adding or standing still on it), run /warp garden.
+            if (!ModConfig.getRewarps().isEmpty() && mc.player != null && mc.world != null) {
+                BlockPos playerPos = mc.player.getBlockPos();
+                boolean onRewarpNow = false;
+                for (RewarpPoint r : ModConfig.getRewarps()) {
+                    if (r.getDistance(playerPos) <= 2) {
+                        onRewarpNow = true;
+                        break;
+                    }
+                }
+                long now = System.currentTimeMillis();
+                if (onRewarpNow && !wasOnRewarpLastTick && now - lastRewarpTriggerTime >= REWARP_COOLDOWN_MS) {
+                    mc.getNetworkHandler().sendChatMessage("/warp garden");
+                    lastRewarpTriggerTime = now;
+                    mc.player.sendMessage(ChatUtils.info("Rewarp: ran /warp garden"), false);
+                }
+                wasOnRewarpLastTick = onRewarpNow;
+            } else {
+                wasOnRewarpLastTick = false;
+            }
+
             // Consume dirty flag (config was saved); we do NOT re-register keybinds — Fabric only allows that at init.
             ModConfig.consumeChatShortcutsDirty();
 
@@ -167,9 +200,14 @@ public final class FarmHelperClient {
             // Destroyer as a separate helper.
             boolean newValue = !enabled;
             if (newValue) {
-                // For now, always run SShapeVerticalCropMacro when enabled.
+                currentMacro = createMacroForCurrentCropType();
+                if (currentMacro == null) {
+                    if (mc.player != null) {
+                        mc.player.sendMessage(ChatUtils.error("No macro for selected crop type"), false);
+                    }
+                    return;
+                }
                 enabled = true;
-                currentMacro = new SShapeVerticalCropMacro();
                 currentMacro.onEnable(mc);
                 captureRotationLock(mc);
                 if (mc.player != null) {
@@ -185,6 +223,19 @@ public final class FarmHelperClient {
     private static void handleOpenGuiKey(MinecraftClient mc) {
         while (openGuiKeyBinding.wasPressed()) {
             mc.setScreen(FarmHelperConfigScreen.create(mc.currentScreen));
+        }
+    }
+
+    private static Macro createMacroForCurrentCropType() {
+        switch (ModConfig.getCropType()) {
+            case S_SHAPE_VERTICAL:
+                return new SShapeVerticalCropMacro();
+            case S_SHAPE_PUMPKIN_MELON:
+                return new SShapePumpkinMelonMacro();
+            case S_SHAPE_PUMPKIN_MELON_MELONKINGDE:
+                return new SShapeVerticalMelonkingdeMacro();
+            default:
+                return new SShapeVerticalCropMacro();
         }
     }
 
