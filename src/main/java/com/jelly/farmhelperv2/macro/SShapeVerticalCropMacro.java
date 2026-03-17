@@ -37,8 +37,11 @@ public class SShapeVerticalCropMacro implements Macro {
     private int stateTicks = 0;
     private int postSwapCooldownTicks = 0;
     private int initialGraceTicks = 0;
-    /** MelonkingDE: only trigger end-of-lane after we've seen pumpkin/melon in front at least once since last swap. */
-    private boolean sawPumpkinOrMelonSinceSwap = false;
+    /** MelonkingDE: counts ticks where sideways movement has effectively stopped while strafing. */
+    private int stoppedStrafingTicks = 0;
+    /** MelonkingDE: previous player position, used to measure sideways movement. */
+    private double lastPosX = 0.0;
+    private double lastPosZ = 0.0;
     /** MelonkingDE: true when current WALK_FORWARD is "step into new lane" after a swap (then we apply grace). */
     private boolean walkingIntoLaneAfterSwap = false;
     private static final int HOLD_TICKS = 5;           // ~0.25s at 20 TPS (side block)
@@ -48,6 +51,10 @@ public class SShapeVerticalCropMacro implements Macro {
     /** After a lane swap in MelonkingDE, ignore "end of lane" for this long so we don't re-trigger on the walkway. */
     private static final int POST_SWAP_GRACE_TICKS_END_OF_LANE = 50;  // ~2.5s at 20 TPS
     private static final int INITIAL_GRACE_TICKS = 40;
+    /** MelonkingDE: how long strafing must be effectively stopped before we treat it as "possible lane end". */
+    private static final int STOPPED_STRAFING_TICKS_THRESHOLD = 4; // ~0.2s at 20 TPS
+    /** MelonkingDE: minimum number of crop blocks (pumpkin/melon/stems) ahead to consider "still in lane". */
+    private static final int MIN_CROP_BLOCKS_AHEAD = 3;
     /** Debug: log WalkableHelper state every this many ticks when in NORMAL (0 = disabled). */
     private static final int DEBUG_INTERVAL_TICKS = 40;
 
@@ -65,7 +72,7 @@ public class SShapeVerticalCropMacro implements Macro {
         stateTicks = 0;
         postSwapCooldownTicks = 0;
         initialGraceTicks = INITIAL_GRACE_TICKS;
-        sawPumpkinOrMelonSinceSwap = true;   // so first end-of-lane can trigger; after swap we set false until we see pumpkin again
+        stoppedStrafingTicks = 0;
         walkingIntoLaneAfterSwap = false;
 
         if (client.player != null) {
@@ -77,6 +84,10 @@ public class SShapeVerticalCropMacro implements Macro {
             client.player.setPitch(targetPitch);
             client.player.setHeadYaw(targetYaw);
             client.player.setBodyYaw(targetYaw);
+
+            // Initialize last position for MelonkingDE movement-based detection.
+            lastPosX = client.player.getX();
+            lastPosZ = client.player.getZ();
         }
 
         // Initial direction: solid block on right → go left; solid block on left → go right; else alternate.
@@ -136,17 +147,7 @@ public class SShapeVerticalCropMacro implements Macro {
                     postSwapCooldownTicks--;
                 } else {
                     if (useEndOfLaneDetection()) {
-                        boolean endOfLane = WalkableHelper.isAtEndOfLaneMelonkingde(client);
-                        if (!endOfLane) {
-                            sawPumpkinOrMelonSinceSwap = true;
-                        }
-                        if (sawPumpkinOrMelonSinceSwap && endOfLane) {
-                            directionState = DirectionState.WALK_FORWARD;
-                            stateTicks = 0;
-                            debugState(client, "end of lane → WALK_FORWARD (front not pumpkin/melon)");
-                        } else if (DEBUG_INTERVAL_TICKS > 0 && stateTicks > 0 && stateTicks % DEBUG_INTERVAL_TICKS == 0) {
-                            debugState(client, "NORMAL check: endOfLaneMelonkingde=" + endOfLane + ", sawPumpkinSinceSwap=" + sawPumpkinOrMelonSinceSwap);
-                        }
+                        handleMelonkingEndOfLaneDetection(client, left, right);
                     } else {
                         // Nether wart: side block hit → hold then swap
                         if (isStrafingSideBlocked(client, goingLeft)) {
@@ -205,8 +206,7 @@ public class SShapeVerticalCropMacro implements Macro {
                     goingLeft = !goingLeft;
                     stateTicks = 0;
                     if (useEndOfLaneDetection()) {
-                        // Walk forward into the new lane so "block in front" becomes pumpkin; then we apply grace in WALK_FORWARD completion
-                        sawPumpkinOrMelonSinceSwap = false;
+                        // MelonkingDE: after swap, walk forward into the new lane; grace is applied on WALK_FORWARD completion.
                         walkingIntoLaneAfterSwap = true;
                         directionState = DirectionState.WALK_FORWARD;
                         debugState(client, "swapping direction → " + (goingLeft ? "LEFT (A)" : "RIGHT (D)") + " → WALK_FORWARD (into lane)");
@@ -304,6 +304,105 @@ public class SShapeVerticalCropMacro implements Macro {
             return false;
         }
         return !client.world.getBlockState(sidePos).getCollisionShape(client.world, sidePos).isEmpty();
+    }
+
+    /**
+     * MelonkingDE: movement-based end-of-lane detection.
+     * - While strafing, measure sideways movement per tick.
+     * - If sideways movement is ~0 for a few ticks, treat as "possible lane end".
+     * - Then scan directly ahead for crops; only if there are none do we start lane swap.
+     */
+    private void handleMelonkingEndOfLaneDetection(MinecraftClient client, boolean leftKey, boolean rightKey) {
+        if (client.player == null || client.world == null) return;
+
+        // Compute sideways movement component based on current yaw and direction (left/right).
+        double currentX = client.player.getX();
+        double currentZ = client.player.getZ();
+        double dx = currentX - lastPosX;
+        double dz = currentZ - lastPosZ;
+
+        float yaw = client.player.getYaw();
+        float normalized = normalizeYaw360(yaw);
+
+        // Unit vector for "left" relative to facing.
+        double leftX = 0.0;
+        double leftZ = 0.0;
+        if (normalized < 45.0f || normalized >= 315.0f) {         // facing South (+Z)
+            leftX = 1.0;
+            leftZ = 0.0;
+        } else if (normalized >= 45.0f && normalized < 135.0f) {  // facing West (-X)
+            leftX = 0.0;
+            leftZ = 1.0;
+        } else if (normalized >= 135.0f && normalized < 225.0f) { // facing North (-Z)
+            leftX = -1.0;
+            leftZ = 0.0;
+        } else {                                                  // facing East (+X)
+            leftX = 0.0;
+            leftZ = -1.0;
+        }
+
+        double dirX = leftKey ? leftX : -leftX; // right is opposite of left
+        double dirZ = leftKey ? leftZ : -leftZ;
+
+        double sidewaysDelta = dx * dirX + dz * dirZ;
+        double sidewaysSpeed = Math.abs(sidewaysDelta);
+
+        // Threshold: if sideways speed is tiny, treat as "stopped strafing".
+        if (sidewaysSpeed < 0.001) {
+            stoppedStrafingTicks++;
+        } else {
+            stoppedStrafingTicks = 0;
+        }
+
+        lastPosX = currentX;
+        lastPosZ = currentZ;
+
+        if (stoppedStrafingTicks >= STOPPED_STRAFING_TICKS_THRESHOLD) {
+            // We've effectively stopped sliding along the lane wall → check if there are any crops directly ahead.
+            boolean cropsAhead = hasCropsDirectlyAhead(client);
+            if (!cropsAhead) {
+                directionState = DirectionState.WALK_FORWARD;
+                stateTicks = 0;
+                stoppedStrafingTicks = 0;
+                debugState(client, "end of lane (stopped strafing, no crops ahead) → WALK_FORWARD");
+            } else {
+                // Still crops ahead; we're likely just slowed down by water/lag/gap.
+                stoppedStrafingTicks = 0;
+                if (DEBUG_INTERVAL_TICKS > 0 && stateTicks > 0 && stateTicks % DEBUG_INTERVAL_TICKS == 0) {
+                    debugState(client, "stopped strafing but crops still ahead; staying in lane");
+                }
+            }
+        } else if (DEBUG_INTERVAL_TICKS > 0 && stateTicks > 0 && stateTicks % DEBUG_INTERVAL_TICKS == 0) {
+            debugState(client, "NORMAL strafing: sidewaysSpeed=" + String.format("%.5f", sidewaysSpeed) + ", stoppedStrafingTicks=" + stoppedStrafingTicks);
+        }
+    }
+
+    /**
+     * MelonkingDE: scan a small column directly in front of the player for pumpkins/melons (and stems).
+     * Only uses 1–2 blocks forward, no side fan-out, matching the idea of "directly in front".
+     */
+    private boolean hasCropsDirectlyAhead(MinecraftClient client) {
+        if (client.player == null || client.world == null) return false;
+
+        BlockPos base = client.player.getBlockPos();
+        net.minecraft.util.math.Direction facing = client.player.getHorizontalFacing();
+
+        int fx = facing.getOffsetX();
+        int fz = facing.getOffsetZ();
+
+        int cropCount = 0;
+        for (int dist = 1; dist <= 2; dist++) {
+            for (int dy = 0; dy <= 3; dy++) {
+                BlockPos pos = base.add(fx * dist, dy, fz * dist);
+                Block block = client.world.getBlockState(pos).getBlock();
+                if (block == Blocks.PUMPKIN || block == Blocks.MELON || block == Blocks.CARVED_PUMPKIN
+                        || block == Blocks.PUMPKIN_STEM || block == Blocks.MELON_STEM
+                        || block == Blocks.ATTACHED_PUMPKIN_STEM || block == Blocks.ATTACHED_MELON_STEM) {
+                    cropCount++;
+                }
+            }
+        }
+        return cropCount > 0;
     }
 
     /**
