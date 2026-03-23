@@ -42,6 +42,8 @@ public final class ModConfig {
 
     // Verbose logging (macro state / area change messages in chat)
     private static boolean verboseLogging = false;
+    // Extra pests debug logging (scoreboard & detection traces)
+    private static boolean pestsDebugLogging = false;
 
     // Chat shortcuts
     private static final List<ChatShortcut> chatShortcuts = new ArrayList<>();
@@ -136,6 +138,14 @@ public final class ModConfig {
 
     public static void setVerboseLogging(boolean enabled) {
         verboseLogging = enabled;
+    }
+
+    public static boolean isPestsDebugLogging() {
+        return pestsDebugLogging;
+    }
+
+    public static void setPestsDebugLogging(boolean enabled) {
+        pestsDebugLogging = enabled;
     }
 
     public static List<ChatShortcut> getChatShortcuts() {
@@ -297,6 +307,7 @@ public final class ModConfig {
                 autoExperimentsEnabled = data.autoExperimentsEnabled;
                 if (data.autoExperimentsClickDelayMs > 0) autoExperimentsClickDelayMs = data.autoExperimentsClickDelayMs;
                 verboseLogging = data.verboseLogging;
+                pestsDebugLogging = data.pestsDebugLogging;
                 if (data.chatShortcuts != null) {
                     chatShortcuts.clear();
                     chatShortcuts.addAll(data.chatShortcuts);
@@ -321,6 +332,7 @@ public final class ModConfig {
             data.autoExperimentsEnabled = autoExperimentsEnabled;
             data.autoExperimentsClickDelayMs = autoExperimentsClickDelayMs;
             data.verboseLogging = verboseLogging;
+            data.pestsDebugLogging = pestsDebugLogging;
             data.chatShortcuts = new ArrayList<>(chatShortcuts);
             Files.writeString(configPath, GSON.toJson(data));
         } catch (IOException e) {
@@ -338,6 +350,7 @@ public final class ModConfig {
         public int autoExperimentsClickDelayMs;
         public boolean verboseLogging;
         public List<ChatShortcut> chatShortcuts;
+        public boolean pestsDebugLogging;
     }
 
     public static class ChatShortcut {

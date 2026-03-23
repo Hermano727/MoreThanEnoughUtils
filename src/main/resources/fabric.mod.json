@@ -16,7 +16,9 @@
       "com.jelly.farmhelperv2.config.ModMenuIntegration"
     ]
   },
-  "mixins": [],
+  "mixins": [
+    "farmhelperv2.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=0.18.0",
     "minecraft": "~1.21.10",

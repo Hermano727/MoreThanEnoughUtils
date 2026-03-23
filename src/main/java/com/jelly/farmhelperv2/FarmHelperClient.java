@@ -5,7 +5,10 @@ import com.jelly.farmhelperv2.config.FarmHelperConfigScreen;
 import com.jelly.farmhelperv2.config.ModConfig;
 import com.jelly.farmhelperv2.config.RewarpPoint;
 import com.jelly.farmhelperv2.macro.Macro;
+import com.jelly.farmhelperv2.macro.SShapeMushroomMacro;
+import com.jelly.farmhelperv2.macro.SShapeMushroomRotateMacro;
 import com.jelly.farmhelperv2.macro.SShapePumpkinMelonMacro;
+import com.jelly.farmhelperv2.macro.SShapeSugarcaneSunflowerMoonflowerMacro;
 import com.jelly.farmhelperv2.macro.SShapeVerticalCropMacro;
 import com.jelly.farmhelperv2.macro.SShapeVerticalMelonkingdeMacro;
 import com.jelly.farmhelperv2.pests.PestsDestroyer;
@@ -13,6 +16,7 @@ import com.jelly.farmhelperv2.render.RewarpRenderer;
 import com.jelly.farmhelperv2.skyblock.AutoExperiments;
 import com.jelly.farmhelperv2.skyblock.ScoreboardAreaReader;
 import com.jelly.farmhelperv2.util.ChatUtils;
+import com.jelly.farmhelperv2.util.InputUtils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
@@ -147,7 +151,11 @@ public final class FarmHelperClient {
                     disableMacro(mc, ChatUtils.warning("Macro disabled: left Garden area"));
                 } else {
                     currentMacro.onTick(mc);
-                    enforceRotationLock(mc);
+                    if (ModConfig.getCropType() != CropMacroType.S_SHAPE_SUGARCANE_SUNFLOWER_MOONFLOWER
+                            && ModConfig.getCropType() != CropMacroType.S_SHAPE_MUSHROOM_ROTATE
+                            && ModConfig.getCropType() != CropMacroType.S_SHAPE_MUSHROOM) {
+                        enforceRotationLock(mc);
+                    }
                 }
             } else {
                 rotationLockActive = false;
@@ -233,7 +241,15 @@ public final class FarmHelperClient {
                 lastCropBreakTimeMs = System.currentTimeMillis();
                 lastWorldRef = mc.world;
                 currentMacro.onEnable(mc);
-                captureRotationLock(mc);
+                // Most macros want a strict yaw/pitch lock so staff checks can't rotate you.
+                // The sugarcane S-shape macro intentionally rotates 180° at lane ends, so skip the lock for it.
+                if (ModConfig.getCropType() != CropMacroType.S_SHAPE_SUGARCANE_SUNFLOWER_MOONFLOWER
+                        && ModConfig.getCropType() != CropMacroType.S_SHAPE_MUSHROOM_ROTATE
+                        && ModConfig.getCropType() != CropMacroType.S_SHAPE_MUSHROOM) {
+                    captureRotationLock(mc);
+                } else {
+                    rotationLockActive = false;
+                }
                 if (mc.player != null) {
                     mc.player.sendMessage(ChatUtils.success("Macro enabled"), false);
                 }
@@ -258,6 +274,12 @@ public final class FarmHelperClient {
                 return new SShapePumpkinMelonMacro();
             case S_SHAPE_PUMPKIN_MELON_MELONKINGDE:
                 return new SShapeVerticalMelonkingdeMacro();
+            case S_SHAPE_SUGARCANE_SUNFLOWER_MOONFLOWER:
+                return new SShapeSugarcaneSunflowerMoonflowerMacro();
+            case S_SHAPE_MUSHROOM:
+                return new SShapeMushroomMacro();
+            case S_SHAPE_MUSHROOM_ROTATE:
+                return new SShapeMushroomRotateMacro();
             default:
                 return new SShapeVerticalCropMacro();
         }
@@ -268,6 +290,13 @@ public final class FarmHelperClient {
             boolean newValue = !ModConfig.isPestDestroyerEnabled();
             ModConfig.setPestDestroyerEnabled(newValue);
             ModConfig.save();
+
+            if (!newValue) {
+                // When the user manually disables Pest Destroyer, ensure all inputs are released
+                // and internal Pest Destroyer state is reset so no keys remain stuck.
+                PestsDestroyer.stop(mc);
+                InputUtils.resetAll(mc, true, true);
+            }
 
             if (mc.player != null) {
                 mc.player.sendMessage(

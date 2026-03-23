@@ -61,4 +61,15 @@ public final class BlockUtils {
         return world.getBlockState(pos).getCollisionShape(world, pos).isEmpty()
                 && world.getBlockState(pos.up()).getCollisionShape(world, pos.up()).isEmpty();
     }
+
+    /**
+     * Snaps {@code yaw} to the nearest multiple of 90° (0, 90, 180, 270).
+     * The result is in the [0, 360) range.
+     */
+    public static float snapYawToNearest90(float yaw) {
+        float n = normalizeYaw360(yaw);
+        float nearest = Math.round(n / 90f) * 90f;
+        if (nearest >= 360f) nearest = 0f;
+        return nearest;
+    }
 }

@@ -16,10 +16,17 @@ import net.minecraft.util.math.Vec3d;
  */
 public final class SimplePathfinder {
 
+    /** Vertical tolerance (blocks) before we consider Y aligned; avoids jitter when nearly level. */
+    public static final double VERT_ADJUST_THRESHOLD = 1.0D;
+
     private SimplePathfinder() {
     }
 
-    public static void moveTowards(MinecraftClient client, Vec3d target) {
+    /**
+     * Moves toward target XZ only. Sneak and jump keys are explicitly cleared so that
+     * vertical state from a prior alignY() call does not persist into horizontal movement.
+     */
+    public static void moveTowardsXZOnly(MinecraftClient client, Vec3d target) {
         if (client == null || client.player == null) {
             return;
         }
@@ -30,22 +37,65 @@ public final class SimplePathfinder {
         double dx = target.x - player.getX();
         double dz = target.z - player.getZ();
 
-        if (dx == 0 && dz == 0) {
-            stop(client);
+        if (dx != 0 || dz != 0) {
+            float yaw = (float) (MathHelper.atan2(dz, dx) * (180F / Math.PI)) - 90.0F;
+            player.setYaw(yaw);
+            player.setHeadYaw(yaw);
+            player.setBodyYaw(yaw);
+
+            options.forwardKey.setPressed(true);
+            options.backKey.setPressed(false);
+            options.leftKey.setPressed(false);
+            options.rightKey.setPressed(false);
+            options.sprintKey.setPressed(true);
+        } else {
+            options.forwardKey.setPressed(false);
+            options.backKey.setPressed(false);
+            options.leftKey.setPressed(false);
+            options.rightKey.setPressed(false);
+            options.sprintKey.setPressed(false);
+        }
+
+        options.jumpKey.setPressed(false);
+        options.sneakKey.setPressed(false);
+    }
+
+    /**
+     * Adjusts vertical position only (for flying). All horizontal movement keys are cleared.
+     * Use this as a dedicated phase before horizontal approach so that sneak is never
+     * held simultaneously with an attack or use action.
+     */
+    public static void alignY(MinecraftClient client, double targetY) {
+        if (client == null || client.player == null) {
             return;
         }
 
-        float yaw = (float) (MathHelper.atan2(dz, dx) * (180F / Math.PI)) - 90.0F;
-        player.setYaw(yaw);
-        player.setHeadYaw(yaw);
-        player.setBodyYaw(yaw);
+        ClientPlayerEntity player = client.player;
+        GameOptions options = client.options;
 
-        // Simple "walk forward & sprint" toward the target.
-        options.forwardKey.setPressed(true);
+        options.forwardKey.setPressed(false);
         options.backKey.setPressed(false);
         options.leftKey.setPressed(false);
         options.rightKey.setPressed(false);
-        options.sprintKey.setPressed(true);
+        options.sprintKey.setPressed(false);
+
+        double dy = targetY - player.getY();
+        if (dy > VERT_ADJUST_THRESHOLD) {
+            options.jumpKey.setPressed(true);
+            options.sneakKey.setPressed(false);
+        } else if (dy < -VERT_ADJUST_THRESHOLD) {
+            options.jumpKey.setPressed(false);
+            options.sneakKey.setPressed(true);
+        } else {
+            options.jumpKey.setPressed(false);
+            options.sneakKey.setPressed(false);
+        }
+    }
+
+    /** @deprecated Use {@link #moveTowardsXZOnly} + {@link #alignY} via the ALIGN_Y state instead. */
+    @Deprecated
+    public static void moveTowards(MinecraftClient client, Vec3d target) {
+        moveTowardsXZOnly(client, target);
     }
 
     public static void stop(MinecraftClient client) {

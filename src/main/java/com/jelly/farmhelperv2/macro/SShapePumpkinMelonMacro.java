@@ -31,7 +31,7 @@ public class SShapePumpkinMelonMacro implements Macro {
     public void onEnable(MinecraftClient client) {
         if (client.player == null) return;
 
-        closest90Yaw = snapYawToNearest90(client.player.getYaw());
+        closest90Yaw = BlockUtils.snapYawToNearest90(client.player.getYaw());
         pitch = 50f + (float) (Math.random() * 6 - 3);
         state = calculateDirection(client);
         if (state == State.NONE) {
@@ -41,11 +41,7 @@ public class SShapePumpkinMelonMacro implements Macro {
 
         float extra = state == State.LEFT ? (-ROTATION_DEGREE - (float) (Math.random() * 2))
                 : (ROTATION_DEGREE + (float) (Math.random() * 2));
-        float targetYaw = closest90Yaw + extra;
-        client.player.setYaw(targetYaw);
-        client.player.setPitch(pitch);
-        client.player.setHeadYaw(targetYaw);
-        client.player.setBodyYaw(targetYaw);
+        MovementUtils.applyRotation(client, closest90Yaw + extra, pitch);
 
         changeLaneDirection = null;
         applyKeys(client, state);
@@ -121,19 +117,11 @@ public class SShapePumpkinMelonMacro implements Macro {
             if (WalkableHelper.isRightWalkable(client)) {
                 state = State.RIGHT;
                 pitch = 50f + (float) (Math.random() * 6 - 3);
-                float targetYaw = closest90Yaw + (ROTATION_DEGREE + (float) (Math.random() * 2));
-                client.player.setYaw(targetYaw);
-                client.player.setPitch(pitch);
-                client.player.setHeadYaw(targetYaw);
-                client.player.setBodyYaw(targetYaw);
+                MovementUtils.applyRotation(client, closest90Yaw + (ROTATION_DEGREE + (float) (Math.random() * 2)), pitch);
             } else if (WalkableHelper.isLeftWalkable(client)) {
                 state = State.LEFT;
                 pitch = 50f + (float) (Math.random() * 6 - 3);
-                float targetYaw = closest90Yaw - (ROTATION_DEGREE + (float) (Math.random() * 2));
-                client.player.setYaw(targetYaw);
-                client.player.setPitch(pitch);
-                client.player.setHeadYaw(targetYaw);
-                client.player.setBodyYaw(targetYaw);
+                MovementUtils.applyRotation(client, closest90Yaw - (ROTATION_DEGREE + (float) (Math.random() * 2)), pitch);
             } else if (WalkableHelper.isFrontWalkable(client)) {
                 if (changeLaneDirection == ChangeLaneDirection.BACKWARD) return;
                 // stay SWITCHING_LANE
@@ -196,10 +184,4 @@ public class SShapePumpkinMelonMacro implements Macro {
         return State.NONE;
     }
 
-    private static float snapYawToNearest90(float yaw) {
-        float n = BlockUtils.normalizeYaw360(yaw);
-        float nearest = Math.round(n / 90f) * 90f;
-        if (nearest >= 360f) nearest = 0f;
-        return nearest;
-    }
 }

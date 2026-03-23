@@ -3,6 +3,8 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
         maven("https://maven.fabricmc.net")
+        maven("https://maven.architectury.dev/")
     }
 }
-rootProject.name = "MoreThanEnoughSkyTils"
+
+rootProject.name = "MoreThanEnoughUtils"

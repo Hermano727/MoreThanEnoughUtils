@@ -55,6 +55,39 @@ public final class ScoreboardAreaReader {
         return area == Area.GARDEN || area == Area.UNKNOWN;
     }
 
+    /**
+     * Returns the player's current Garden plot number by reading the "Plot - N" line
+     * from the sidebar scoreboard (e.g. "Plot - 5 ≠ x1" → 5).
+     *
+     * @return the plot number (1–24), {@code 0} when standing in the barn,
+     *         or {@code -1} when no plot line is found.
+     */
+    public static int getCurrentPlot(MinecraftClient client) {
+        if (client == null || client.world == null) return -1;
+
+        for (String rawLine : getSidebarLines(client)) {
+            String line = rawLine.trim();
+            String lower = line.toLowerCase();
+
+            // Match lines like "Plot - 5", "Plot: 5", "Plot 5", "Plot - 5 ≠ x1"
+            if (!lower.startsWith("plot")) continue;
+
+            // Strip the "Plot" keyword and any separator chars
+            String remainder = line.substring("plot".length()).replaceFirst("^\\s*[-:]?\\s*", "");
+
+            // Read leading digits
+            int end = 0;
+            while (end < remainder.length() && Character.isDigit(remainder.charAt(end))) end++;
+            if (end == 0) continue;
+
+            try {
+                return Integer.parseInt(remainder.substring(0, end));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return -1;
+    }
+
     private static List<String> getSidebarLines(MinecraftClient client) {
         List<String> result = new ArrayList<>();
 

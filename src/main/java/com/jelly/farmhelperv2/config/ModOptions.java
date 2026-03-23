@@ -6,7 +6,7 @@ import dev.isxander.yacl3.api.ConfigCategory;
 import dev.isxander.yacl3.api.Option;
 import dev.isxander.yacl3.api.OptionDescription;
 import dev.isxander.yacl3.api.OptionGroup;
-import dev.isxander.yacl3.api.controller.EnumControllerBuilder;
+import dev.isxander.yacl3.api.controller.EnumDropdownControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
 import net.minecraft.client.MinecraftClient;
@@ -107,9 +107,8 @@ public final class ModOptions {
                                 ModConfig::getCropType,
                                 ModConfig::setCropType
                         )
-                        .controller(option -> EnumControllerBuilder.create(option)
-                                .enumClass(CropMacroType.class)
-                                .valueFormatter(v -> Text.literal(v.getDisplayName())))
+                        .controller(option -> EnumDropdownControllerBuilder.create(option)
+                                .formatValue(v -> Text.literal(v.getDisplayName())))
                         .build())
                 .build();
     }

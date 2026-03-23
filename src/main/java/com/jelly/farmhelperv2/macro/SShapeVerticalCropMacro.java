@@ -1,5 +1,6 @@
 package com.jelly.farmhelperv2.macro;
 
+import com.jelly.farmhelperv2.util.BlockUtils;
 import com.jelly.farmhelperv2.util.ChatUtils;
 import com.jelly.farmhelperv2.util.MovementUtils;
 import com.jelly.farmhelperv2.util.WalkableHelper;
@@ -21,8 +22,8 @@ import net.minecraft.util.math.BlockPos;
  */
 public class SShapeVerticalCropMacro implements Macro {
 
-    /** Alternate starting direction each time the macro is re-enabled. */
-    private static boolean nextStartLeft = true;
+    /** Alternate starting direction each time the macro is re-enabled (instance-level, not shared). */
+    private boolean nextStartLeft = true;
 
     private boolean goingLeft = true;
 
@@ -76,14 +77,8 @@ public class SShapeVerticalCropMacro implements Macro {
         walkingIntoLaneAfterSwap = false;
 
         if (client.player != null) {
-            float currentYaw = client.player.getYaw();
-            float targetYaw = snapYawToNearest90(currentYaw);
-            float targetPitch = 0.0f;
-
-            client.player.setYaw(targetYaw);
-            client.player.setPitch(targetPitch);
-            client.player.setHeadYaw(targetYaw);
-            client.player.setBodyYaw(targetYaw);
+            float targetYaw = BlockUtils.snapYawToNearest90(client.player.getYaw());
+            MovementUtils.applyRotation(client, targetYaw, 0.0f);
 
             // Initialize last position for MelonkingDE movement-based detection.
             lastPosX = client.player.getX();
@@ -255,7 +250,7 @@ public class SShapeVerticalCropMacro implements Macro {
         if (client.player == null || client.world == null) return false;
 
         BlockPos base = client.player.getBlockPos();
-        float normalized = normalizeYaw360(client.player.getYaw());
+        float normalized = BlockUtils.normalizeYaw360(client.player.getYaw());
 
         int dx = 0;
         int dz = 0;
@@ -283,7 +278,7 @@ public class SShapeVerticalCropMacro implements Macro {
         if (client.player == null || client.world == null) return false;
 
         BlockPos base = client.player.getBlockPos();
-        float normalized = normalizeYaw360(client.player.getYaw());
+        float normalized = BlockUtils.normalizeYaw360(client.player.getYaw());
 
         int dx = 0;
         int dz = 0;
@@ -322,7 +317,7 @@ public class SShapeVerticalCropMacro implements Macro {
         double dz = currentZ - lastPosZ;
 
         float yaw = client.player.getYaw();
-        float normalized = normalizeYaw360(yaw);
+        float normalized = BlockUtils.normalizeYaw360(yaw);
 
         // Unit vector for "left" relative to facing.
         double leftX = 0.0;
@@ -429,16 +424,4 @@ public class SShapeVerticalCropMacro implements Macro {
         return false;
     }
 
-    private static float snapYawToNearest90(float yaw) {
-        float normalized = normalizeYaw360(yaw);
-        float nearest = Math.round(normalized / 90.0f) * 90.0f;
-        if (nearest >= 360.0f) nearest = 0.0f;
-        return nearest;
-    }
-
-    private static float normalizeYaw360(float yaw) {
-        float normalized = yaw % 360.0f;
-        if (normalized < 0.0f) normalized += 360.0f;
-        return normalized;
-    }
 }

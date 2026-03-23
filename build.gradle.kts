@@ -1,5 +1,5 @@
 plugins {
-    // Loom 1.14.x for compatibility with cached dependencies built with newer Loom
+    // Loom 1.14.x for Minecraft 1.21; requires Gradle 9.2+
     id("fabric-loom") version "1.14.9"
     java
 }

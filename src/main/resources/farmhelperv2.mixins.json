@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "com.jelly.farmhelperv2.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ParticleInterceptorMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

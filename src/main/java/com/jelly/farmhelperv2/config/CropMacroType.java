@@ -7,7 +7,10 @@ package com.jelly.farmhelperv2.config;
 public enum CropMacroType {
     S_SHAPE_VERTICAL("S-Shape Vertical (Nether Wart, etc.)"),
     S_SHAPE_PUMPKIN_MELON("S-Shape Pumpkin/Melon"),
-    S_SHAPE_PUMPKIN_MELON_MELONKINGDE("S-Shape Pumpkin/Melon (Melonkingde)");
+    S_SHAPE_PUMPKIN_MELON_MELONKINGDE("S-Shape Pumpkin/Melon (Melonkingde)"),
+    S_SHAPE_SUGARCANE_SUNFLOWER_MOONFLOWER("S-Shape Sugarcane/Sunflower/Moonflower"),
+    S_SHAPE_MUSHROOM("S-Shape Mushroom"),
+    S_SHAPE_MUSHROOM_ROTATE("S-Shape Mushroom (Rotate)");
 
     private final String displayName;
 
