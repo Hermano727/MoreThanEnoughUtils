@@ -43,24 +43,30 @@ public final class PestsDestroyer {
     // FOLLOW_TRAIL tuning.
     private static final long FOLLOW_TRAIL_LEFT_CLICK_INTERVAL_MS = 800L;
     private static final long FOLLOW_TRAIL_TIMEOUT_MS = 15_000L;
-    /** How long to sprint toward the computed heading before stopping to re-click. */
+    /**
+     * How long to sprint toward the computed heading before stopping to re-click.
+     */
     private static final long FOLLOW_TRAIL_MOVE_DURATION_MS = 3_000L;
     /** How long to pause (stand still and click) before moving again. */
     private static final long FOLLOW_TRAIL_PAUSE_DURATION_MS = 1_000L;
 
-    // Stuck detection: flag as stuck if the player moves less than this distance per check.
+    // Stuck detection: flag as stuck if the player moves less than this distance
+    // per check.
     private static final long STUCK_CHECK_INTERVAL_MS = 1_500L;
     private static final double STUCK_DISTANCE_THRESHOLD = 0.3D;
 
-    // If ALIGN_Y cannot reach hover altitude within this window, the Y path is obstructed.
+    // If ALIGN_Y cannot reach hover altitude within this window, the Y path is
+    // obstructed.
     private static final long ALIGN_Y_TIMEOUT_MS = 5_000L;
 
     private enum State {
         IDLE,
         SEARCH_TARGET,
         /**
-         * No entity locked yet. Left-click the vacuum periodically to emit its particle trail cue,
-         * navigate toward the last known pest position, and keep scanning for a lockable entity.
+         * No entity locked yet. Left-click the vacuum periodically to emit its particle
+         * trail cue,
+         * navigate toward the last known pest position, and keep scanning for a
+         * lockable entity.
          * Detects STUCK and logs it verbosely.
          */
         FOLLOW_TRAIL,
@@ -68,12 +74,14 @@ public final class PestsDestroyer {
         MOVE_TO_TARGET,
         /**
          * XZ is correct; stop and adjust Y to hover HOVER_HEIGHT above the target.
-         * If Y cannot be reached within ALIGN_Y_TIMEOUT_MS, transitions to FOUND_PEST_STUCK.
+         * If Y cannot be reached within ALIGN_Y_TIMEOUT_MS, transitions to
+         * FOUND_PEST_STUCK.
          */
         ALIGN_Y,
         ATTACK_TARGET,
         /**
-         * XZ was correct but Y could not be aligned — something is blocking vertical movement.
+         * XZ was correct but Y could not be aligned — something is blocking vertical
+         * movement.
          * Holds position and logs "found pest: stuck". Recovery logic TBD.
          */
         FOUND_PEST_STUCK,
@@ -97,7 +105,10 @@ public final class PestsDestroyer {
     private static Vec3d stuckCheckPos = null;
     private static long stuckCheckTimeMs = 0L;
     private static long lastFollowClickTimeMs = 0L;
-    /** Timestamp of when the current FOLLOW_TRAIL run began; drives the move/pause cycle. */
+    /**
+     * Timestamp of when the current FOLLOW_TRAIL run began; drives the move/pause
+     * cycle.
+     */
     private static long followTrailPhaseStartMs = 0L;
 
     private PestsDestroyer() {
@@ -207,7 +218,8 @@ public final class PestsDestroyer {
 
     private static void handleSearchTarget(MinecraftClient client, long now) {
         if (!ensureTargetValid(client, now)) {
-            // No entity in detection range yet; use the vacuum trail to navigate toward pests.
+            // No entity in detection range yet; use the vacuum trail to navigate toward
+            // pests.
             if (now - lastStateChangeTimeMs > RETARGET_COOLDOWN_MS) {
                 resetFollowTrailState();
                 transitionTo(State.FOLLOW_TRAIL, now);
@@ -215,11 +227,13 @@ public final class PestsDestroyer {
             return;
         }
 
-        // Approach XZ first; Y is aligned only once we are in the correct horizontal position.
+        // Approach XZ first; Y is aligned only once we are in the correct horizontal
+        // position.
         transitionTo(State.MOVE_TO_TARGET, now);
     }
 
-    private static void handleFollowTrail(MinecraftClient client, ClientPlayerEntity player, GameOptions options, long now) {
+    private static void handleFollowTrail(MinecraftClient client, ClientPlayerEntity player, GameOptions options,
+            long now) {
         // Activate particle tracking as long as we are in this state.
         VacuumParticleTracker.setActive(true);
         VacuumParticleTracker.purgeExpired();
@@ -249,8 +263,8 @@ public final class PestsDestroyer {
         }
 
         // ── Move / pause phase ────────────────────────────────────────────────
-        long cycleLen  = FOLLOW_TRAIL_PAUSE_DURATION_MS + FOLLOW_TRAIL_MOVE_DURATION_MS;
-        long phase     = (now - followTrailPhaseStartMs) % cycleLen;
+        long cycleLen = FOLLOW_TRAIL_PAUSE_DURATION_MS + FOLLOW_TRAIL_MOVE_DURATION_MS;
+        long phase = (now - followTrailPhaseStartMs) % cycleLen;
         boolean paused = phase < FOLLOW_TRAIL_PAUSE_DURATION_MS;
 
         // ── Equip vacuum ──────────────────────────────────────────────────────
@@ -333,7 +347,8 @@ public final class PestsDestroyer {
             options.leftKey.setPressed(false);
             options.rightKey.setPressed(false);
             options.sneakKey.setPressed(false);
-            if (shouldJump) options.jumpKey.setPressed(true);
+            if (shouldJump)
+                options.jumpKey.setPressed(true);
             return;
         }
 
@@ -347,16 +362,17 @@ public final class PestsDestroyer {
                     player.sendMessage(Text.literal("[MTEU] FOLLOW_TRAIL: moving toward last known pest pos"), false);
                 }
                 SimplePathfinder.moveTowardsXZOnly(client, lastKnownPestPos);
-                if (shouldJump) options.jumpKey.setPressed(true);
+                if (shouldJump)
+                    options.jumpKey.setPressed(true);
                 return;
             }
         }
 
         // Priority 2: use the Garden plot grid to determine heading.
-        int currentPlot    = ScoreboardAreaReader.getCurrentPlot(client);
+        int currentPlot = ScoreboardAreaReader.getCurrentPlot(client);
         List<Integer> pestPlots = TablistPestReader.getInfestedPlots(client);
-        int targetPlot     = GardenPlotGrid.closestPestPlot(currentPlot, pestPlots);
-        float plotYaw      = GardenPlotGrid.getApproximateYaw(currentPlot, targetPlot);
+        int targetPlot = GardenPlotGrid.closestPestPlot(currentPlot, pestPlots);
+        float plotYaw = GardenPlotGrid.getApproximateYaw(currentPlot, targetPlot);
 
         if (!Float.isNaN(plotYaw)) {
             if (ModConfig.isVerboseLogging() && now - lastDebugMessageTimeMs >= DEBUG_MESSAGE_COOLDOWN_MS) {
@@ -376,13 +392,15 @@ public final class PestsDestroyer {
             options.leftKey.setPressed(false);
             options.rightKey.setPressed(false);
             options.sneakKey.setPressed(false);
-            if (shouldJump) options.jumpKey.setPressed(true);
+            if (shouldJump)
+                options.jumpKey.setPressed(true);
             return;
         }
 
         // Priority 3: no usable direction — diagnose each data source.
         SimplePathfinder.stop(client);
-        if (shouldJump) options.jumpKey.setPressed(true);
+        if (shouldJump)
+            options.jumpKey.setPressed(true);
         if (ModConfig.isVerboseLogging() && now - lastDebugMessageTimeMs >= DEBUG_MESSAGE_COOLDOWN_MS) {
             lastDebugMessageTimeMs = now;
 
@@ -402,7 +420,8 @@ public final class PestsDestroyer {
 
             // Grid diagnosis (only if both sources have data)
             String gridStr = (currentPlot != -1 && !pestPlots.isEmpty())
-                    ? "grid target: " + (targetPlot == -1 ? "unresolved (plot not in grid?)" : String.valueOf(targetPlot))
+                    ? "grid target: "
+                            + (targetPlot == -1 ? "unresolved (plot not in grid?)" : String.valueOf(targetPlot))
                     : "";
 
             player.sendMessage(Text.literal("[MTEU] FOLLOW_TRAIL no direction:"), false);
@@ -429,7 +448,8 @@ public final class PestsDestroyer {
             return;
         }
 
-        // Timeout: XZ is correct but Y isn't moving — something is physically blocking us.
+        // Timeout: XZ is correct but Y isn't moving — something is physically blocking
+        // us.
         if (now - lastStateChangeTimeMs > ALIGN_Y_TIMEOUT_MS) {
             SimplePathfinder.stop(client);
             FarmHelperFabric.LOGGER.warn("Pest Destroyer: ALIGN_Y timed out — vertical path obstructed");
@@ -457,7 +477,8 @@ public final class PestsDestroyer {
         SimplePathfinder.alignY(client, targetPos.y + HOVER_HEIGHT);
     }
 
-    private static void handleMoveToTarget(MinecraftClient client, ClientPlayerEntity player, GameOptions options, long now) {
+    private static void handleMoveToTarget(MinecraftClient client, ClientPlayerEntity player, GameOptions options,
+            long now) {
         if (!isCurrentTargetUsable()) {
             transitionTo(State.FOLLOW_TRAIL, now);
             return;
@@ -489,7 +510,8 @@ public final class PestsDestroyer {
         SimplePathfinder.moveTowardsXZOnly(client, targetPos);
     }
 
-    private static void handleAttackTarget(MinecraftClient client, ClientPlayerEntity player, GameOptions options, long now) {
+    private static void handleAttackTarget(MinecraftClient client, ClientPlayerEntity player, GameOptions options,
+            long now) {
         if (!isCurrentTargetUsable()) {
             releaseActionKeys(options);
             transitionTo(State.FOLLOW_TRAIL, now);
@@ -526,7 +548,8 @@ public final class PestsDestroyer {
 
         SimplePathfinder.stop(client);
 
-        if (vacuumHotbarSlot >= 0 && vacuumHotbarSlot <= 8 && player.getInventory().getSelectedSlot() != vacuumHotbarSlot) {
+        if (vacuumHotbarSlot >= 0 && vacuumHotbarSlot <= 8
+                && player.getInventory().getSelectedSlot() != vacuumHotbarSlot) {
             player.getInventory().setSelectedSlot(vacuumHotbarSlot);
         }
 
@@ -536,20 +559,25 @@ public final class PestsDestroyer {
         }
 
         lastAttackTimeMs = now;
-        // Sneak and left-click must never be held here: sneak+right-click can open GUIs,
-        // and sneak+left-click definitely does. Only hold right-click (use key) for the vacuum.
+        // Sneak and left-click must never be held here: sneak+right-click can open
+        // GUIs,
+        // and sneak+left-click definitely does. Only hold right-click (use key) for the
+        // vacuum.
         releaseActionKeys(options);
         options.useKey.setPressed(true);
     }
 
-    /** Releases all action keys that must not be held during a vacuum interaction. */
+    /**
+     * Releases all action keys that must not be held during a vacuum interaction.
+     */
     private static void releaseActionKeys(GameOptions options) {
         options.sneakKey.setPressed(false);
         options.attackKey.setPressed(false);
         options.useKey.setPressed(false);
     }
 
-    private static void handleFoundPestStuck(MinecraftClient client, ClientPlayerEntity player, GameOptions options, long now) {
+    private static void handleFoundPestStuck(MinecraftClient client, ClientPlayerEntity player, GameOptions options,
+            long now) {
         SimplePathfinder.stop(client);
         releaseActionKeys(options);
 
@@ -606,14 +634,19 @@ public final class PestsDestroyer {
         return Math.sqrt(dx * dx + dz * dz);
     }
 
-    /** Distance from the player's current Y to the hover altitude (pest Y + HOVER_HEIGHT). */
+    /**
+     * Distance from the player's current Y to the hover altitude (pest Y +
+     * HOVER_HEIGHT).
+     */
     private static double hoverVerticalDelta(ClientPlayerEntity player, Vec3d targetPos) {
         return Math.abs(player.getY() - (targetPos.y + HOVER_HEIGHT));
     }
 
     /**
-     * Maximum horizontal reach of the vacuum while hovering HOVER_HEIGHT above the pest.
-     * Derived from: sqrt(range² − HOVER_HEIGHT²) so that the 3-D distance equals the vacuum range.
+     * Maximum horizontal reach of the vacuum while hovering HOVER_HEIGHT above the
+     * pest.
+     * Derived from: sqrt(range² − HOVER_HEIGHT²) so that the 3-D distance equals
+     * the vacuum range.
      */
     private static double getMaxHorizontalRange() {
         double range = getEffectiveVacuumRange();
@@ -632,7 +665,8 @@ public final class PestsDestroyer {
     }
 
     private static int findVacuumSlot(ClientPlayerEntity player) {
-        if (player == null) return -1;
+        if (player == null)
+            return -1;
         for (int slot = 0; slot < 9; slot++) {
             ItemStack stack = player.getInventory().getStack(slot);
             if (stack == null || stack.isEmpty()) {
@@ -678,4 +712,3 @@ public final class PestsDestroyer {
         return currentVacuumRange > 0.0D ? currentVacuumRange : DEFAULT_VACUUM_RANGE;
     }
 }
-
