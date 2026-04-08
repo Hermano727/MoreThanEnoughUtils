@@ -6,6 +6,7 @@ import dev.isxander.yacl3.api.ConfigCategory;
 import dev.isxander.yacl3.api.Option;
 import dev.isxander.yacl3.api.OptionDescription;
 import dev.isxander.yacl3.api.OptionGroup;
+import dev.isxander.yacl3.api.controller.DoubleSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.EnumDropdownControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
@@ -27,6 +28,7 @@ public final class ModOptions {
                 .group(macroGroup())
                 .group(rewarpGroup())
                 .group(pestsGroup())
+                .group(freecamGroup())
                 .group(experimentsGroup())
                 .group(chatShortcutsGroup())
                 .build();
@@ -47,8 +49,56 @@ public final class ModOptions {
         return ConfigCategory.createBuilder()
                 .name(Text.literal("Other"))
                 .group(loggingGroup())
+                .group(freecamGroup())
                 .group(experimentsGroup())
                 .group(chatShortcutsGroup())
+                .build();
+    }
+
+    private static OptionGroup freecamGroup() {
+        return OptionGroup.createBuilder()
+                .name(Text.literal("Freecam"))
+                .description(OptionDescription.of(Text.literal(
+                        "Detach the camera on the client only; your character stays still. "
+                                + "Bind Toggle Freecam under Options → Controls → MoreThanEnoughUtils (unbound by default). "
+                                + "May be against rules on some multiplayer servers — use at your own risk."
+                )))
+                .option(Option.<Double>createBuilder()
+                        .name(Text.literal("Horizontal speed"))
+                        .description(OptionDescription.of(Text.literal("How fast you move along the ground plane (WASD), relative to where you look.")))
+                        .binding(
+                                1.0,
+                                ModConfig::getFreecamHorizontalSpeed,
+                                ModConfig::setFreecamHorizontalSpeed
+                        )
+                        .controller(opt -> DoubleSliderControllerBuilder.create(opt)
+                                .range(0.05, 5.0)
+                                .step(0.05)
+                                .formatValue(v -> Text.literal(String.format("%.2f", v))))
+                        .build())
+                .option(Option.<Double>createBuilder()
+                        .name(Text.literal("Vertical speed"))
+                        .description(OptionDescription.of(Text.literal("Up/down speed (jump / sneak) while in freecam.")))
+                        .binding(
+                                0.6,
+                                ModConfig::getFreecamVerticalSpeed,
+                                ModConfig::setFreecamVerticalSpeed
+                        )
+                        .controller(opt -> DoubleSliderControllerBuilder.create(opt)
+                                .range(0.05, 5.0)
+                                .step(0.05)
+                                .formatValue(v -> Text.literal(String.format("%.2f", v))))
+                        .build())
+                .option(Option.<Boolean>createBuilder()
+                        .name(Text.literal("Chat messages on toggle"))
+                        .description(OptionDescription.of(Text.literal("Show short enable/disable lines in chat when you turn freecam on or off.")))
+                        .binding(
+                                true,
+                                ModConfig::isFreecamNotifyMessages,
+                                ModConfig::setFreecamNotifyMessages
+                        )
+                        .controller(TickBoxControllerBuilder::create)
+                        .build())
                 .build();
     }
 

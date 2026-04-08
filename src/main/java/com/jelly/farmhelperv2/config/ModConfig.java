@@ -45,6 +45,12 @@ public final class ModConfig {
     // Extra pests debug logging (scoreboard & detection traces)
     private static boolean pestsDebugLogging = false;
 
+    // Freecam (0 = unbound key; client-only movement preview — use at your own risk on multiplayer)
+    private static int freecamKeyCode = 0;
+    private static double freecamHorizontalSpeed = 1.0;
+    private static double freecamVerticalSpeed = 0.6;
+    private static boolean freecamNotifyMessages = true;
+
     // Chat shortcuts
     private static final List<ChatShortcut> chatShortcuts = new ArrayList<>();
     private static boolean chatShortcutsDirty = false;
@@ -146,6 +152,42 @@ public final class ModConfig {
 
     public static void setPestsDebugLogging(boolean enabled) {
         pestsDebugLogging = enabled;
+    }
+
+    public static int getFreecamKeyCode() {
+        return freecamKeyCode;
+    }
+
+    public static void setFreecamKeyCode(int keyCode) {
+        freecamKeyCode = keyCode;
+    }
+
+    public static double getFreecamHorizontalSpeed() {
+        return freecamHorizontalSpeed;
+    }
+
+    public static void setFreecamHorizontalSpeed(double speed) {
+        if (speed < 0.05) speed = 0.05;
+        if (speed > 5.0) speed = 5.0;
+        freecamHorizontalSpeed = speed;
+    }
+
+    public static double getFreecamVerticalSpeed() {
+        return freecamVerticalSpeed;
+    }
+
+    public static void setFreecamVerticalSpeed(double speed) {
+        if (speed < 0.05) speed = 0.05;
+        if (speed > 5.0) speed = 5.0;
+        freecamVerticalSpeed = speed;
+    }
+
+    public static boolean isFreecamNotifyMessages() {
+        return freecamNotifyMessages;
+    }
+
+    public static void setFreecamNotifyMessages(boolean freecamNotifyMessages) {
+        ModConfig.freecamNotifyMessages = freecamNotifyMessages;
     }
 
     public static List<ChatShortcut> getChatShortcuts() {
@@ -308,6 +350,12 @@ public final class ModConfig {
                 if (data.autoExperimentsClickDelayMs > 0) autoExperimentsClickDelayMs = data.autoExperimentsClickDelayMs;
                 verboseLogging = data.verboseLogging;
                 pestsDebugLogging = data.pestsDebugLogging;
+                if (data.freecamKeyCode != 0) freecamKeyCode = data.freecamKeyCode;
+                if (data.freecamHorizontalSpeed > 0) freecamHorizontalSpeed = data.freecamHorizontalSpeed;
+                if (data.freecamVerticalSpeed > 0) freecamVerticalSpeed = data.freecamVerticalSpeed;
+                if (data.freecamNotifyMessages != null) {
+                    freecamNotifyMessages = data.freecamNotifyMessages;
+                }
                 if (data.chatShortcuts != null) {
                     chatShortcuts.clear();
                     chatShortcuts.addAll(data.chatShortcuts);
@@ -333,6 +381,10 @@ public final class ModConfig {
             data.autoExperimentsClickDelayMs = autoExperimentsClickDelayMs;
             data.verboseLogging = verboseLogging;
             data.pestsDebugLogging = pestsDebugLogging;
+            data.freecamKeyCode = freecamKeyCode;
+            data.freecamHorizontalSpeed = freecamHorizontalSpeed;
+            data.freecamVerticalSpeed = freecamVerticalSpeed;
+            data.freecamNotifyMessages = freecamNotifyMessages;
             data.chatShortcuts = new ArrayList<>(chatShortcuts);
             Files.writeString(configPath, GSON.toJson(data));
         } catch (IOException e) {
@@ -351,6 +403,10 @@ public final class ModConfig {
         public boolean verboseLogging;
         public List<ChatShortcut> chatShortcuts;
         public boolean pestsDebugLogging;
+        public int freecamKeyCode;
+        public double freecamHorizontalSpeed;
+        public double freecamVerticalSpeed;
+        public Boolean freecamNotifyMessages;
     }
 
     public static class ChatShortcut {

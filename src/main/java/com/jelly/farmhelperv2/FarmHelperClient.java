@@ -11,6 +11,8 @@ import com.jelly.farmhelperv2.macro.SShapePumpkinMelonMacro;
 import com.jelly.farmhelperv2.macro.SShapeSugarcaneSunflowerMoonflowerMacro;
 import com.jelly.farmhelperv2.macro.SShapeVerticalCropMacro;
 import com.jelly.farmhelperv2.macro.SShapeVerticalMelonkingdeMacro;
+import com.jelly.farmhelperv2.freecam.FrozenPlayerInput;
+import com.jelly.farmhelperv2.freecam.MteuFreecam;
 import com.jelly.farmhelperv2.pests.PestsDestroyer;
 import com.jelly.farmhelperv2.render.RewarpRenderer;
 import com.jelly.farmhelperv2.skyblock.AutoExperiments;
@@ -19,6 +21,7 @@ import com.jelly.farmhelperv2.util.ChatUtils;
 import com.jelly.farmhelperv2.util.InputUtils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientReceiveMessageEvents;
 import net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents;
 import net.minecraft.client.MinecraftClient;
@@ -38,7 +41,7 @@ import java.util.List;
  * Client-side state and controls for the MoreThanEnoughUtils 1.21 Fabric port.
  *
  * Responsibilities:
- * - Register and drive keybindings (main macro toggle, open config GUI, Pest Destroyer toggle).
+ * - Register and drive keybindings (main macro toggle, open config GUI, Pest Destroyer, Freecam).
  * - Manage the active macro lifecycle.
  * - Enforce pitch/yaw lock with an alarm while the macro is enabled.
  * - Tick the minimal Pest Destroyer feature.
@@ -49,6 +52,7 @@ public final class FarmHelperClient {
     private static KeyBinding toggleKeyBinding;
     private static KeyBinding openGuiKeyBinding;
     private static KeyBinding pestDestroyerKeyBinding;
+    private static KeyBinding freecamKeyBinding;
     private static Macro currentMacro;
 
     private static float lockedYaw;
@@ -115,8 +119,27 @@ public final class FarmHelperClient {
                 )
         );
 
+        int freecamCode = ModConfig.getFreecamKeyCode();
+        freecamKeyBinding = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding(
+                        "key.farmhelperv2.freecam",
+                        InputUtil.Type.KEYSYM,
+                        freecamCode != 0 ? freecamCode : InputUtil.UNKNOWN_KEY.getCode(),
+                        MTEU_CATEGORY
+                )
+        );
+
+        ClientTickEvents.START_CLIENT_TICK.register(mc -> {
+            if (MteuFreecam.isActive() && mc.player != null) {
+                mc.player.input = FrozenPlayerInput.INSTANCE;
+            }
+        });
+
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
-            if (mc.player == null) return;
+            MteuFreecam.disableIfNeeded(mc);
+            if (mc.player == null) {
+                return;
+            }
 
             // Debug: log and show when our inferred SkyBlock area changes (only in chat if verbose).
             ScoreboardAreaReader.Area currentArea = ScoreboardAreaReader.getCurrentArea(mc);
@@ -135,6 +158,8 @@ public final class FarmHelperClient {
             handleToggleKey(mc);
             handleOpenGuiKey(mc);
             handlePestDestroyerKey(mc);
+            handleFreecamKey(mc);
+            MteuFreecam.syncLookFromPlayer(mc);
 
             // Drive the active macro every tick while enabled.
             if (enabled && currentMacro != null) {
@@ -162,7 +187,7 @@ public final class FarmHelperClient {
             }
 
             // Run minimal Pest Destroyer logic when enabled in config.
-            if (ModConfig.isPestDestroyerEnabled()) {
+            if (ModConfig.isPestDestroyerEnabled() && !MteuFreecam.isActive()) {
                 PestsDestroyer.tick(mc);
             }
 
@@ -176,7 +201,7 @@ public final class FarmHelperClient {
             }
 
             // Rewarp: only when player *moves onto* a saved point (not when adding or standing still on it), run /warp garden.
-            if (!ModConfig.getRewarps().isEmpty() && mc.player != null && mc.world != null) {
+            if (!ModConfig.getRewarps().isEmpty() && mc.player != null && mc.world != null && !MteuFreecam.isActive()) {
                 BlockPos playerPos = mc.player.getBlockPos();
                 boolean onRewarpNow = false;
                 for (RewarpPoint r : ModConfig.getRewarps()) {
@@ -210,6 +235,8 @@ public final class FarmHelperClient {
         });
 
         // Disable macros on server reboot warnings in chat.
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, mc2) -> MteuFreecam.disable(mc2));
+
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
             String text = message.getString();
             if (text.contains("Scheduled Reboot") || text.contains("server will restart soon")) {
@@ -230,6 +257,9 @@ public final class FarmHelperClient {
             // Destroyer as a separate helper.
             boolean newValue = !enabled;
             if (newValue) {
+                if (MteuFreecam.isActive()) {
+                    MteuFreecam.disable(mc);
+                }
                 currentMacro = createMacroForCurrentCropType();
                 if (currentMacro == null) {
                     if (mc.player != null) {
@@ -307,6 +337,29 @@ public final class FarmHelperClient {
                 );
             }
             FarmHelperFabric.LOGGER.info("Pest Destroyer toggle set to {}", newValue);
+        }
+    }
+
+    private static void handleFreecamKey(MinecraftClient mc) {
+        while (freecamKeyBinding.wasPressed()) {
+            MteuFreecam.toggle(mc);
+            FarmHelperFabric.LOGGER.info("MTEU freecam toggled, active={}", MteuFreecam.isActive());
+        }
+    }
+
+    /**
+     * Stops macro and Pest Destroyer movement before entering freecam.
+     */
+    public static void prepareForFreecam(MinecraftClient mc) {
+        if (mc == null) {
+            return;
+        }
+        if (enabled && currentMacro != null) {
+            disableMacro(mc, ChatUtils.info("Macro disabled: Freecam"));
+        }
+        if (ModConfig.isPestDestroyerEnabled()) {
+            PestsDestroyer.stop(mc);
+            InputUtils.resetAll(mc, true, true);
         }
     }
 
