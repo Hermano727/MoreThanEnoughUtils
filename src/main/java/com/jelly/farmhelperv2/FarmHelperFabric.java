@@ -1,6 +1,7 @@
 package com.jelly.farmhelperv2;
 
 import com.jelly.farmhelperv2.config.ModConfig;
+import com.jelly.farmhelperv2.render.JawbusWarningHud;
 import com.jelly.farmhelperv2.render.RewarpRenderer;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
@@ -31,6 +32,7 @@ public class FarmHelperFabric implements ClientModInitializer {
 
         FarmHelperClient.init();
         RewarpRenderer.register();
+        JawbusWarningHud.register();
         MteuCommands.register();
     }
 }

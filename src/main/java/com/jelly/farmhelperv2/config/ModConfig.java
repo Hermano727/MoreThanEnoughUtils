@@ -35,6 +35,16 @@ public final class ModConfig {
     private static boolean pestDestroyerEnabled = false;
     private static int pestDestroyerKeyCode = GLFW.GLFW_KEY_P;
 
+    // Auto Fishing
+    private static boolean autoFishingEnabled = false;
+    private static int autoFishingKeyCode = GLFW.GLFW_KEY_O;
+    private static int autoFishingRecastGuardMs = 200;
+    private static int autoFishingReelDelayMinTicks = 3;
+    private static int autoFishingReelDelayMaxTicks = 6;
+    private static int autoFishingRecastDelayMinTicks = 6;
+    private static int autoFishingRecastDelayMaxTicks = 9;
+    private static boolean autoFishingRequireHeldRod = false;
+
     // Auto Experiments (Chronomatron / Ultrasequencer)
     private static boolean autoExperimentsEnabled = false;
     /** Delay between Auto Experiments clicks, in milliseconds. */
@@ -111,6 +121,92 @@ public final class ModConfig {
 
     public static void setPestDestroyerKeyCode(int keyCode) {
         pestDestroyerKeyCode = keyCode;
+    }
+
+    public static boolean isAutoFishingEnabled() {
+        return autoFishingEnabled;
+    }
+
+    public static void setAutoFishingEnabled(boolean enabled) {
+        autoFishingEnabled = enabled;
+    }
+
+    public static int getAutoFishingKeyCode() {
+        return autoFishingKeyCode;
+    }
+
+    public static void setAutoFishingKeyCode(int keyCode) {
+        autoFishingKeyCode = keyCode;
+    }
+
+    public static int getAutoFishingRecastGuardMs() {
+        return autoFishingRecastGuardMs;
+    }
+
+    public static void setAutoFishingRecastGuardMs(int ms) {
+        if (ms < 50) ms = 50;
+        if (ms > 2000) ms = 2000;
+        autoFishingRecastGuardMs = ms;
+    }
+
+    public static int getAutoFishingReelDelayMinTicks() {
+        return autoFishingReelDelayMinTicks;
+    }
+
+    public static void setAutoFishingReelDelayMinTicks(int ticks) {
+        if (ticks < 0) ticks = 0;
+        if (ticks > 20) ticks = 20;
+        autoFishingReelDelayMinTicks = ticks;
+        if (autoFishingReelDelayMaxTicks < autoFishingReelDelayMinTicks) {
+            autoFishingReelDelayMaxTicks = autoFishingReelDelayMinTicks;
+        }
+    }
+
+    public static int getAutoFishingReelDelayMaxTicks() {
+        return autoFishingReelDelayMaxTicks;
+    }
+
+    public static void setAutoFishingReelDelayMaxTicks(int ticks) {
+        if (ticks < 0) ticks = 0;
+        if (ticks > 20) ticks = 20;
+        autoFishingReelDelayMaxTicks = ticks;
+        if (autoFishingReelDelayMaxTicks < autoFishingReelDelayMinTicks) {
+            autoFishingReelDelayMinTicks = autoFishingReelDelayMaxTicks;
+        }
+    }
+
+    public static int getAutoFishingRecastDelayMinTicks() {
+        return autoFishingRecastDelayMinTicks;
+    }
+
+    public static void setAutoFishingRecastDelayMinTicks(int ticks) {
+        if (ticks < 0) ticks = 0;
+        if (ticks > 40) ticks = 40;
+        autoFishingRecastDelayMinTicks = ticks;
+        if (autoFishingRecastDelayMaxTicks < autoFishingRecastDelayMinTicks) {
+            autoFishingRecastDelayMaxTicks = autoFishingRecastDelayMinTicks;
+        }
+    }
+
+    public static int getAutoFishingRecastDelayMaxTicks() {
+        return autoFishingRecastDelayMaxTicks;
+    }
+
+    public static void setAutoFishingRecastDelayMaxTicks(int ticks) {
+        if (ticks < 0) ticks = 0;
+        if (ticks > 40) ticks = 40;
+        autoFishingRecastDelayMaxTicks = ticks;
+        if (autoFishingRecastDelayMaxTicks < autoFishingRecastDelayMinTicks) {
+            autoFishingRecastDelayMinTicks = autoFishingRecastDelayMaxTicks;
+        }
+    }
+
+    public static boolean isAutoFishingRequireHeldRod() {
+        return autoFishingRequireHeldRod;
+    }
+
+    public static void setAutoFishingRequireHeldRod(boolean requireHeldRod) {
+        autoFishingRequireHeldRod = requireHeldRod;
     }
 
     public static boolean isAutoExperimentsEnabled() {
@@ -346,6 +442,26 @@ public final class ModConfig {
                 if (data.cropTypeName != null) cropTypeName = data.cropTypeName;
                 pestDestroyerEnabled = data.pestDestroyerEnabled;
                 if (data.pestDestroyerKeyCode != 0) pestDestroyerKeyCode = data.pestDestroyerKeyCode;
+                autoFishingEnabled = data.autoFishingEnabled;
+                if (data.autoFishingKeyCode != 0) autoFishingKeyCode = data.autoFishingKeyCode;
+                if (data.autoFishingRecastGuardMs > 0) {
+                    setAutoFishingRecastGuardMs(data.autoFishingRecastGuardMs);
+                }
+                if (data.autoFishingReelDelayMinTicks >= 0) {
+                    setAutoFishingReelDelayMinTicks(data.autoFishingReelDelayMinTicks);
+                }
+                if (data.autoFishingReelDelayMaxTicks >= 0) {
+                    setAutoFishingReelDelayMaxTicks(data.autoFishingReelDelayMaxTicks);
+                }
+                if (data.autoFishingRecastDelayMinTicks >= 0) {
+                    setAutoFishingRecastDelayMinTicks(data.autoFishingRecastDelayMinTicks);
+                }
+                if (data.autoFishingRecastDelayMaxTicks >= 0) {
+                    setAutoFishingRecastDelayMaxTicks(data.autoFishingRecastDelayMaxTicks);
+                }
+                if (data.autoFishingRequireHeldRod != null) {
+                    autoFishingRequireHeldRod = data.autoFishingRequireHeldRod;
+                }
                 autoExperimentsEnabled = data.autoExperimentsEnabled;
                 if (data.autoExperimentsClickDelayMs > 0) autoExperimentsClickDelayMs = data.autoExperimentsClickDelayMs;
                 verboseLogging = data.verboseLogging;
@@ -377,6 +493,14 @@ public final class ModConfig {
             data.cropTypeName = cropTypeName;
             data.pestDestroyerEnabled = pestDestroyerEnabled;
             data.pestDestroyerKeyCode = pestDestroyerKeyCode;
+            data.autoFishingEnabled = autoFishingEnabled;
+            data.autoFishingKeyCode = autoFishingKeyCode;
+            data.autoFishingRecastGuardMs = autoFishingRecastGuardMs;
+            data.autoFishingReelDelayMinTicks = autoFishingReelDelayMinTicks;
+            data.autoFishingReelDelayMaxTicks = autoFishingReelDelayMaxTicks;
+            data.autoFishingRecastDelayMinTicks = autoFishingRecastDelayMinTicks;
+            data.autoFishingRecastDelayMaxTicks = autoFishingRecastDelayMaxTicks;
+            data.autoFishingRequireHeldRod = autoFishingRequireHeldRod;
             data.autoExperimentsEnabled = autoExperimentsEnabled;
             data.autoExperimentsClickDelayMs = autoExperimentsClickDelayMs;
             data.verboseLogging = verboseLogging;
@@ -398,6 +522,14 @@ public final class ModConfig {
         public String cropTypeName;
         public boolean pestDestroyerEnabled;
         public int pestDestroyerKeyCode;
+        public boolean autoFishingEnabled;
+        public int autoFishingKeyCode;
+        public int autoFishingRecastGuardMs;
+        public int autoFishingReelDelayMinTicks = -1;
+        public int autoFishingReelDelayMaxTicks = -1;
+        public int autoFishingRecastDelayMinTicks = -1;
+        public int autoFishingRecastDelayMaxTicks = -1;
+        public Boolean autoFishingRequireHeldRod;
         public boolean autoExperimentsEnabled;
         public int autoExperimentsClickDelayMs;
         public boolean verboseLogging;

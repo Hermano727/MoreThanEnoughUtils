@@ -12,27 +12,34 @@ import net.minecraft.util.math.BlockPos;
 
 /**
  * Standard FarmHelper S-Shape Pumpkin/Melon macro (Fabric 1.21).
- * When hitting a wall, walks forward or backward to switch lane, then continues left/right.
+ * When hitting a wall, walks forward or backward to switch lane, then continues
+ * left/right.
  * Does not swap direction on "bump into side" like the vertical crop macro.
  */
 public class SShapePumpkinMelonMacro implements Macro {
 
     private static final float ROTATION_DEGREE = 45f;
 
-    private enum State { NONE, LEFT, RIGHT, SWITCHING_LANE }
-    private enum ChangeLaneDirection { FORWARD, BACKWARD }
+    private enum State {
+        NONE, LEFT, RIGHT, SWITCHING_LANE
+    }
+
+    private enum ChangeLaneDirection {
+        FORWARD, BACKWARD
+    }
 
     private State state = State.NONE;
     private ChangeLaneDirection changeLaneDirection = null;
     private float closest90Yaw = 0f;
-    private float pitch = 50f;
+    private float pitch = -59f;
 
     @Override
     public void onEnable(MinecraftClient client) {
-        if (client.player == null) return;
+        if (client.player == null)
+            return;
 
         closest90Yaw = BlockUtils.snapYawToNearest90(client.player.getYaw());
-        pitch = 50f + (float) (Math.random() * 6 - 3);
+        pitch = -59f;
         state = calculateDirection(client);
         if (state == State.NONE) {
             client.player.sendMessage(ChatUtils.warning("Pumpkin/Melon: no direction found"), false);
@@ -47,15 +54,16 @@ public class SShapePumpkinMelonMacro implements Macro {
         applyKeys(client, state);
         if (com.jelly.farmhelperv2.config.ModConfig.isVerboseLogging()) {
             client.player.sendMessage(
-                    ChatUtils.success("S-Shape Pumpkin/Melon ENABLED (" + (state == State.LEFT ? "LEFT" : "RIGHT") + ")"),
-                    false
-            );
+                    ChatUtils.success(
+                            "S-Shape Pumpkin/Melon ENABLED (" + (state == State.LEFT ? "LEFT" : "RIGHT") + ")"),
+                    false);
         }
     }
 
     @Override
     public void onTick(MinecraftClient client) {
-        if (client.player == null || client.world == null) return;
+        if (client.player == null || client.world == null)
+            return;
 
         updateState(client);
         applyKeys(client, state);
@@ -90,8 +98,9 @@ public class SShapePumpkinMelonMacro implements Macro {
                     return; // stuck, keep current state
                 }
                 changeLaneDirection = ChangeLaneDirection.FORWARD;
-                pitch = 50f + (float) (Math.random() * 6 - 3);
-                float add = state == State.RIGHT ? -((float) (Math.random() * 0.4 + 0.2)) : ((float) (Math.random() * 0.4 + 0.2));
+                pitch = -59f;
+                float add = state == State.RIGHT ? -((float) (Math.random() * 0.4 + 0.2))
+                        : ((float) (Math.random() * 0.4 + 0.2));
                 client.player.setYaw(closest90Yaw + add);
                 client.player.setPitch(pitch);
                 state = State.SWITCHING_LANE;
@@ -100,15 +109,19 @@ public class SShapePumpkinMelonMacro implements Macro {
                     return;
                 }
                 changeLaneDirection = ChangeLaneDirection.BACKWARD;
-                pitch = 50f + (float) (Math.random() * 6 - 3);
-                float add = state == State.RIGHT ? -((float) (Math.random() * 0.4 + 0.2)) : ((float) (Math.random() * 0.4 + 0.2));
+                pitch = -59f;
+                float add = state == State.RIGHT ? -((float) (Math.random() * 0.4 + 0.2))
+                        : ((float) (Math.random() * 0.4 + 0.2));
                 client.player.setYaw(closest90Yaw + add);
                 client.player.setPitch(pitch);
                 state = State.SWITCHING_LANE;
             } else {
-                if (WalkableHelper.isLeftWalkable(client)) state = State.LEFT;
-                else if (WalkableHelper.isRightWalkable(client)) state = State.RIGHT;
-                else state = State.NONE;
+                if (WalkableHelper.isLeftWalkable(client))
+                    state = State.LEFT;
+                else if (WalkableHelper.isRightWalkable(client))
+                    state = State.RIGHT;
+                else
+                    state = State.NONE;
             }
             return;
         }
@@ -116,17 +129,21 @@ public class SShapePumpkinMelonMacro implements Macro {
         if (state == State.SWITCHING_LANE) {
             if (WalkableHelper.isRightWalkable(client)) {
                 state = State.RIGHT;
-                pitch = 50f + (float) (Math.random() * 6 - 3);
-                MovementUtils.applyRotation(client, closest90Yaw + (ROTATION_DEGREE + (float) (Math.random() * 2)), pitch);
+                pitch = -59f;
+                MovementUtils.applyRotation(client, closest90Yaw + (ROTATION_DEGREE + (float) (Math.random() * 2)),
+                        pitch);
             } else if (WalkableHelper.isLeftWalkable(client)) {
                 state = State.LEFT;
-                pitch = 50f + (float) (Math.random() * 6 - 3);
-                MovementUtils.applyRotation(client, closest90Yaw - (ROTATION_DEGREE + (float) (Math.random() * 2)), pitch);
+                pitch = -59f;
+                MovementUtils.applyRotation(client, closest90Yaw - (ROTATION_DEGREE + (float) (Math.random() * 2)),
+                        pitch);
             } else if (WalkableHelper.isFrontWalkable(client)) {
-                if (changeLaneDirection == ChangeLaneDirection.BACKWARD) return;
+                if (changeLaneDirection == ChangeLaneDirection.BACKWARD)
+                    return;
                 // stay SWITCHING_LANE
             } else if (WalkableHelper.isBackWalkable(client)) {
-                if (changeLaneDirection == ChangeLaneDirection.FORWARD) return;
+                if (changeLaneDirection == ChangeLaneDirection.FORWARD)
+                    return;
                 // stay SWITCHING_LANE
             } else {
                 state = State.NONE;
@@ -165,7 +182,8 @@ public class SShapePumpkinMelonMacro implements Macro {
     }
 
     private State calculateDirection(MinecraftClient client) {
-        if (client.player == null || client.world == null) return State.NONE;
+        if (client.player == null || client.world == null)
+            return State.NONE;
         float yaw = closest90Yaw;
         double px = client.player.getX();
         double py = client.player.getY();
@@ -176,10 +194,14 @@ public class SShapePumpkinMelonMacro implements Macro {
             BlockPos pl = BlockUtils.getRelativeBlockPos(-i, 0, 0, yaw, px, py, pz);
             Block br = BlockUtils.getBlock(client.world, pr);
             Block bl = BlockUtils.getBlock(client.world, pl);
-            if (br == Blocks.PUMPKIN || br == Blocks.MELON) return State.RIGHT;
-            if (bl == Blocks.PUMPKIN || bl == Blocks.MELON) return State.LEFT;
-            if (!BlockUtils.canWalkThrough(client.world, pr)) return State.LEFT;
-            if (!BlockUtils.canWalkThrough(client.world, pl)) return State.RIGHT;
+            if (br == Blocks.PUMPKIN || br == Blocks.MELON)
+                return State.RIGHT;
+            if (bl == Blocks.PUMPKIN || bl == Blocks.MELON)
+                return State.LEFT;
+            if (!BlockUtils.canWalkThrough(client.world, pr))
+                return State.LEFT;
+            if (!BlockUtils.canWalkThrough(client.world, pl))
+                return State.RIGHT;
         }
         return State.NONE;
     }

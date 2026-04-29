@@ -11,6 +11,7 @@ import dev.isxander.yacl3.api.controller.EnumDropdownControllerBuilder;
 import dev.isxander.yacl3.api.controller.IntegerSliderControllerBuilder;
 import dev.isxander.yacl3.api.controller.TickBoxControllerBuilder;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.option.ControlsOptionsScreen;
 import net.minecraft.text.Text;
 
 /**
@@ -28,6 +29,7 @@ public final class ModOptions {
                 .group(macroGroup())
                 .group(rewarpGroup())
                 .group(pestsGroup())
+                .group(fishGroup())
                 .group(freecamGroup())
                 .group(experimentsGroup())
                 .group(chatShortcutsGroup())
@@ -41,6 +43,14 @@ public final class ModOptions {
                 .group(macroGroup())
                 .group(rewarpGroup())
                 .group(pestsGroup())
+                .build();
+    }
+
+    /** Fish section: Auto Fishing options. */
+    public static ConfigCategory fishCategory() {
+        return ConfigCategory.createBuilder()
+                .name(Text.literal("Fish"))
+                .group(fishGroup())
                 .build();
     }
 
@@ -227,6 +237,98 @@ public final class ModOptions {
                                 ModConfig::setPestDestroyerEnabled
                         )
                         .controller(TickBoxControllerBuilder::create)
+                        .build())
+                .build();
+    }
+
+    private static OptionGroup fishGroup() {
+        return OptionGroup.createBuilder()
+                .name(Text.literal("Fish"))
+                .description(OptionDescription.of(Text.literal("Auto fishing helper for bite detection, reel, and recast timing.")))
+                .option(Option.<Boolean>createBuilder()
+                        .name(Text.literal("Enable Auto Fishing"))
+                        .description(OptionDescription.of(Text.literal("Run the fishing helper loop when toggled on with the fish keybind.")))
+                        .binding(
+                                false,
+                                ModConfig::isAutoFishingEnabled,
+                                ModConfig::setAutoFishingEnabled
+                        )
+                        .controller(TickBoxControllerBuilder::create)
+                        .build())
+                .option(ButtonOption.createBuilder()
+                        .name(Text.literal("Set Toggle Keybind"))
+                        .description(OptionDescription.of(Text.literal("Open Controls to set the Auto Fishing toggle keybind (default: O).")))
+                        .action((screen, option) -> {
+                            MinecraftClient client = MinecraftClient.getInstance();
+                            if (client != null) {
+                                client.setScreen(new ControlsOptionsScreen(screen, client.options));
+                            }
+                        })
+                        .build())
+                .option(Option.<Integer>createBuilder()
+                        .name(Text.literal("Recast guard (ms)"))
+                        .description(OptionDescription.of(Text.literal("Ignores duplicate bite triggers inside this window to avoid instant double-recasts.")))
+                        .binding(
+                                200,
+                                ModConfig::getAutoFishingRecastGuardMs,
+                                ModConfig::setAutoFishingRecastGuardMs
+                        )
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt)
+                                .range(50, 2000)
+                                .step(25)
+                                .valueFormatter(val -> Text.literal(val + " ms")))
+                        .build())
+                .option(Option.<Integer>createBuilder()
+                        .name(Text.literal("Reel delay min (ticks)"))
+                        .description(OptionDescription.of(Text.literal("Minimum delay before reeling after a detected bite sound.")))
+                        .binding(
+                                3,
+                                ModConfig::getAutoFishingReelDelayMinTicks,
+                                ModConfig::setAutoFishingReelDelayMinTicks
+                        )
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt)
+                                .range(0, 20)
+                                .step(1)
+                                .valueFormatter(val -> Text.literal(val + " ticks")))
+                        .build())
+                .option(Option.<Integer>createBuilder()
+                        .name(Text.literal("Reel delay max (ticks)"))
+                        .description(OptionDescription.of(Text.literal("Maximum delay before reeling after a detected bite sound.")))
+                        .binding(
+                                6,
+                                ModConfig::getAutoFishingReelDelayMaxTicks,
+                                ModConfig::setAutoFishingReelDelayMaxTicks
+                        )
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt)
+                                .range(0, 20)
+                                .step(1)
+                                .valueFormatter(val -> Text.literal(val + " ticks")))
+                        .build())
+                .option(Option.<Integer>createBuilder()
+                        .name(Text.literal("Recast delay min (ticks)"))
+                        .description(OptionDescription.of(Text.literal("Minimum delay after reeling before recasting the rod.")))
+                        .binding(
+                                6,
+                                ModConfig::getAutoFishingRecastDelayMinTicks,
+                                ModConfig::setAutoFishingRecastDelayMinTicks
+                        )
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt)
+                                .range(0, 40)
+                                .step(1)
+                                .valueFormatter(val -> Text.literal(val + " ticks")))
+                        .build())
+                .option(Option.<Integer>createBuilder()
+                        .name(Text.literal("Recast delay max (ticks)"))
+                        .description(OptionDescription.of(Text.literal("Maximum delay after reeling before recasting the rod.")))
+                        .binding(
+                                9,
+                                ModConfig::getAutoFishingRecastDelayMaxTicks,
+                                ModConfig::setAutoFishingRecastDelayMaxTicks
+                        )
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt)
+                                .range(0, 40)
+                                .step(1)
+                                .valueFormatter(val -> Text.literal(val + " ticks")))
                         .build())
                 .build();
     }

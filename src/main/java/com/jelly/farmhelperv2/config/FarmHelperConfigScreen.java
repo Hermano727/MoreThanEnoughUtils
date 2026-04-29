@@ -17,6 +17,7 @@ public final class FarmHelperConfigScreen {
         return YetAnotherConfigLib.createBuilder()
                 .title(Text.literal("MoreThanEnoughUtils"))
                 .category(ModOptions::farmingCategory)
+                .category(ModOptions::fishCategory)
                 .category(ModOptions::otherCategory)
                 .save(ModConfig::save)
                 .build()

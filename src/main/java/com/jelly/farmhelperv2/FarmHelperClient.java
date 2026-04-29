@@ -4,6 +4,7 @@ import com.jelly.farmhelperv2.config.CropMacroType;
 import com.jelly.farmhelperv2.config.FarmHelperConfigScreen;
 import com.jelly.farmhelperv2.config.ModConfig;
 import com.jelly.farmhelperv2.config.RewarpPoint;
+import com.jelly.farmhelperv2.fish.AutoFishing;
 import com.jelly.farmhelperv2.macro.Macro;
 import com.jelly.farmhelperv2.macro.SShapeMushroomMacro;
 import com.jelly.farmhelperv2.macro.SShapeMushroomRotateMacro;
@@ -14,6 +15,7 @@ import com.jelly.farmhelperv2.macro.SShapeVerticalMelonkingdeMacro;
 import com.jelly.farmhelperv2.freecam.FrozenPlayerInput;
 import com.jelly.farmhelperv2.freecam.MteuFreecam;
 import com.jelly.farmhelperv2.pests.PestsDestroyer;
+import com.jelly.farmhelperv2.render.JawbusWarningHud;
 import com.jelly.farmhelperv2.render.RewarpRenderer;
 import com.jelly.farmhelperv2.skyblock.AutoExperiments;
 import com.jelly.farmhelperv2.skyblock.ScoreboardAreaReader;
@@ -52,6 +54,7 @@ public final class FarmHelperClient {
     private static KeyBinding toggleKeyBinding;
     private static KeyBinding openGuiKeyBinding;
     private static KeyBinding pestDestroyerKeyBinding;
+    private static KeyBinding fishToggleKeyBinding;
     private static KeyBinding freecamKeyBinding;
     private static Macro currentMacro;
 
@@ -119,6 +122,16 @@ public final class FarmHelperClient {
                 )
         );
 
+        // Auto Fishing toggle key.
+        fishToggleKeyBinding = KeyBindingHelper.registerKeyBinding(
+                new KeyBinding(
+                        "key.farmhelperv2.fish_toggle",
+                        InputUtil.Type.KEYSYM,
+                        ModConfig.getAutoFishingKeyCode(),
+                        MTEU_CATEGORY
+                )
+        );
+
         int freecamCode = ModConfig.getFreecamKeyCode();
         freecamKeyBinding = KeyBindingHelper.registerKeyBinding(
                 new KeyBinding(
@@ -158,6 +171,7 @@ public final class FarmHelperClient {
             handleToggleKey(mc);
             handleOpenGuiKey(mc);
             handlePestDestroyerKey(mc);
+            handleFishToggleKey(mc);
             handleFreecamKey(mc);
             MteuFreecam.syncLookFromPlayer(mc);
 
@@ -189,6 +203,16 @@ public final class FarmHelperClient {
             // Run minimal Pest Destroyer logic when enabled in config.
             if (ModConfig.isPestDestroyerEnabled() && !MteuFreecam.isActive()) {
                 PestsDestroyer.tick(mc);
+            }
+
+            // Auto Fishing runs only when no other movement-automation mode is active.
+            if (ModConfig.isAutoFishingEnabled() && !enabled && !ModConfig.isPestDestroyerEnabled() && !MteuFreecam.isActive()) {
+                if (!AutoFishing.isRunning()) {
+                    AutoFishing.setRunning(mc, true);
+                }
+                AutoFishing.tick(mc);
+            } else if (AutoFishing.isRunning()) {
+                AutoFishing.stop(mc);
             }
 
             // Run Auto Experiments helper only when enabled in config.
@@ -235,16 +259,24 @@ public final class FarmHelperClient {
         });
 
         // Disable macros on server reboot warnings in chat.
-        ClientPlayConnectionEvents.DISCONNECT.register((handler, mc2) -> MteuFreecam.disable(mc2));
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, mc2) -> {
+            MteuFreecam.disable(mc2);
+            AutoFishing.stop(mc2);
+        });
 
         ClientReceiveMessageEvents.GAME.register((message, overlay) -> {
-            String text = message.getString();
-            if (text.contains("Scheduled Reboot") || text.contains("server will restart soon")) {
+            String text = message != null ? message.getString() : null;
+            checkJawbusMessage(text);
+            if (text != null && (text.contains("Scheduled Reboot") || text.contains("server will restart soon"))) {
                 MinecraftClient mc = MinecraftClient.getInstance();
                 if (mc != null && enabled && currentMacro != null) {
                     disableMacro(mc, ChatUtils.error("Macro disabled: server reboot scheduled"));
                 }
             }
+        });
+        ClientReceiveMessageEvents.CHAT.register((message, signedMessage, sender, params, receptionTimestamp) -> {
+            String text = message != null ? message.getString() : null;
+            checkJawbusMessage(text);
         });
 
         registerChatShortcutKeyBindingsOnce();
@@ -259,6 +291,11 @@ public final class FarmHelperClient {
             if (newValue) {
                 if (MteuFreecam.isActive()) {
                     MteuFreecam.disable(mc);
+                }
+                if (AutoFishing.isRunning()) {
+                    AutoFishing.stop(mc);
+                    ModConfig.setAutoFishingEnabled(false);
+                    ModConfig.save();
                 }
                 currentMacro = createMacroForCurrentCropType();
                 if (currentMacro == null) {
@@ -326,6 +363,9 @@ public final class FarmHelperClient {
                 // and internal Pest Destroyer state is reset so no keys remain stuck.
                 PestsDestroyer.stop(mc);
                 InputUtils.resetAll(mc, true, true);
+            } else if (AutoFishing.isRunning()) {
+                AutoFishing.stop(mc);
+                ModConfig.setAutoFishingEnabled(false);
             }
 
             if (mc.player != null) {
@@ -337,6 +377,40 @@ public final class FarmHelperClient {
                 );
             }
             FarmHelperFabric.LOGGER.info("Pest Destroyer toggle set to {}", newValue);
+        }
+    }
+
+    private static void handleFishToggleKey(MinecraftClient mc) {
+        while (fishToggleKeyBinding.wasPressed()) {
+            boolean newValue = !ModConfig.isAutoFishingEnabled();
+            if (newValue) {
+                if (enabled) {
+                    disableMacro(mc, ChatUtils.warning("Macro disabled: Auto Fishing enabled"));
+                }
+                if (ModConfig.isPestDestroyerEnabled()) {
+                    ModConfig.setPestDestroyerEnabled(false);
+                    PestsDestroyer.stop(mc);
+                }
+                if (MteuFreecam.isActive()) {
+                    MteuFreecam.disable(mc);
+                }
+            }
+            ModConfig.setAutoFishingEnabled(newValue);
+            ModConfig.save();
+
+            if (!newValue) {
+                AutoFishing.stop(mc);
+            }
+
+            if (mc.player != null) {
+                mc.player.sendMessage(
+                        newValue
+                                ? ChatUtils.success("Auto Fishing enabled")
+                                : ChatUtils.warning("Auto Fishing disabled"),
+                        false
+                );
+            }
+            FarmHelperFabric.LOGGER.info("Auto Fishing toggle set to {}", newValue);
         }
     }
 
@@ -360,6 +434,9 @@ public final class FarmHelperClient {
         if (ModConfig.isPestDestroyerEnabled()) {
             PestsDestroyer.stop(mc);
             InputUtils.resetAll(mc, true, true);
+        }
+        if (AutoFishing.isRunning()) {
+            AutoFishing.stop(mc);
         }
     }
 
@@ -459,6 +536,22 @@ public final class FarmHelperClient {
 
     public static boolean isEnabled() {
         return enabled;
+    }
+
+    private static void checkJawbusMessage(String text) {
+        if (text == null) return;
+        String trimmed = text.trim();
+        if (trimmed.isEmpty()) return;
+        if (JawbusWarningHud.isDebugTriggerOnAnyChat()) {
+            JawbusWarningHud.triggerWarning();
+            return;
+        }
+        String normalized = trimmed.toLowerCase();
+        // Match Hypixel-style death lines: "was killed by Lord Jawbus" / skull prefix / stacking suffix
+        if (normalized.contains("lord jawbus")
+                && (normalized.contains("killed by") || normalized.contains("was killed"))) {
+            JawbusWarningHud.triggerWarning();
+        }
     }
 
     private static void disableMacro(MinecraftClient mc, Text reason) {

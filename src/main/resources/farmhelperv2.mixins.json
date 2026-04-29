@@ -3,7 +3,8 @@
   "package": "com.jelly.farmhelperv2.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "ParticleInterceptorMixin"
+    "ParticleInterceptorMixin",
+    "SoundInterceptorMixin"
   ],
   "injectors": {
     "defaultRequire": 1
