@@ -72,6 +72,40 @@ public final class MteuCommands {
                                     }
                                     return 1;
                                 }))
+                        .then(literal("version")
+                                .executes(context -> {
+                                    MinecraftClient client = context.getSource().getClient();
+                                    if (client.player != null) {
+                                        client.player.sendMessage(
+                                                ChatUtils.info("MTEU version: " + FarmHelperFabric.VERSION),
+                                                false);
+                                        client.player.sendMessage(
+                                                ChatUtils.info("Loaded build: " + FarmHelperFabric.BUILD_FINGERPRINT),
+                                                false);
+                                    }
+                                    FarmHelperFabric.LOGGER.info(
+                                            "MTEU /version -> version={}, build={}",
+                                            FarmHelperFabric.VERSION,
+                                            FarmHelperFabric.BUILD_FINGERPRINT
+                                    );
+                                    return 1;
+                                }))
+                        .then(literal("macro")
+                                .executes(context -> {
+                                    MinecraftClient client = context.getSource().getClient();
+                                    if (client.player != null) {
+                                        client.player.sendMessage(
+                                                ChatUtils.info("Configured crop type: " + FarmHelperClient.getCurrentCropTypeName()),
+                                                false);
+                                        client.player.sendMessage(
+                                                ChatUtils.info("Active macro: " + FarmHelperClient.getCurrentMacroName()),
+                                                false);
+                                        client.player.sendMessage(
+                                                ChatUtils.info("Macro enabled: " + FarmHelperClient.isEnabled()),
+                                                false);
+                                    }
+                                    return 1;
+                                }))
         );
     }
 }

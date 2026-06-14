@@ -19,6 +19,7 @@ public final class FarmHelperConfigScreen {
                 .category(ModOptions::farmingCategory)
                 .category(ModOptions::fishCategory)
                 .category(ModOptions::otherCategory)
+                .category(ModOptions::bingoCategory)
                 .save(ModConfig::save)
                 .build()
                 .generateScreen(parent);

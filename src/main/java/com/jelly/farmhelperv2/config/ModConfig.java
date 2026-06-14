@@ -50,6 +50,13 @@ public final class ModConfig {
     /** Delay between Auto Experiments clicks, in milliseconds. */
     private static int autoExperimentsClickDelayMs = 500;
 
+    // Bingo / Rat Detector
+    private static boolean ratDetectorEnabled = false;
+    private static boolean ratTracerEnabled = true;
+    private static int ratDetectionRange = 48;
+    /** Log + periodic chat lines for rat scan stats (see Bingo tab). */
+    private static boolean ratDetectorDebugLogging = false;
+
     // Verbose logging (macro state / area change messages in chat)
     private static boolean verboseLogging = false;
     // Extra pests debug logging (scoreboard & detection traces)
@@ -232,6 +239,40 @@ public final class ModConfig {
         if (delayMs < 50) delayMs = 50;
         if (delayMs > 2000) delayMs = 2000;
         autoExperimentsClickDelayMs = delayMs;
+    }
+
+    public static boolean isRatDetectorEnabled() {
+        return ratDetectorEnabled;
+    }
+
+    public static void setRatDetectorEnabled(boolean enabled) {
+        ratDetectorEnabled = enabled;
+    }
+
+    public static boolean isRatTracerEnabled() {
+        return ratTracerEnabled;
+    }
+
+    public static void setRatTracerEnabled(boolean enabled) {
+        ratTracerEnabled = enabled;
+    }
+
+    public static int getRatDetectionRange() {
+        return ratDetectionRange;
+    }
+
+    public static void setRatDetectionRange(int range) {
+        if (range < 16) range = 16;
+        if (range > 96) range = 96;
+        ratDetectionRange = range;
+    }
+
+    public static boolean isRatDetectorDebugLogging() {
+        return ratDetectorDebugLogging;
+    }
+
+    public static void setRatDetectorDebugLogging(boolean enabled) {
+        ratDetectorDebugLogging = enabled;
     }
 
     public static boolean isVerboseLogging() {
@@ -464,6 +505,16 @@ public final class ModConfig {
                 }
                 autoExperimentsEnabled = data.autoExperimentsEnabled;
                 if (data.autoExperimentsClickDelayMs > 0) autoExperimentsClickDelayMs = data.autoExperimentsClickDelayMs;
+                ratDetectorEnabled = data.ratDetectorEnabled;
+                if (data.ratTracerEnabled != null) {
+                    ratTracerEnabled = data.ratTracerEnabled;
+                }
+                if (data.ratDetectionRange > 0) {
+                    setRatDetectionRange(data.ratDetectionRange);
+                }
+                if (data.ratDetectorDebugLogging != null) {
+                    ratDetectorDebugLogging = data.ratDetectorDebugLogging;
+                }
                 verboseLogging = data.verboseLogging;
                 pestsDebugLogging = data.pestsDebugLogging;
                 if (data.freecamKeyCode != 0) freecamKeyCode = data.freecamKeyCode;
@@ -503,6 +554,10 @@ public final class ModConfig {
             data.autoFishingRequireHeldRod = autoFishingRequireHeldRod;
             data.autoExperimentsEnabled = autoExperimentsEnabled;
             data.autoExperimentsClickDelayMs = autoExperimentsClickDelayMs;
+            data.ratDetectorEnabled = ratDetectorEnabled;
+            data.ratTracerEnabled = ratTracerEnabled;
+            data.ratDetectionRange = ratDetectionRange;
+            data.ratDetectorDebugLogging = ratDetectorDebugLogging;
             data.verboseLogging = verboseLogging;
             data.pestsDebugLogging = pestsDebugLogging;
             data.freecamKeyCode = freecamKeyCode;
@@ -532,6 +587,10 @@ public final class ModConfig {
         public Boolean autoFishingRequireHeldRod;
         public boolean autoExperimentsEnabled;
         public int autoExperimentsClickDelayMs;
+        public boolean ratDetectorEnabled;
+        public Boolean ratTracerEnabled;
+        public int ratDetectionRange;
+        public Boolean ratDetectorDebugLogging;
         public boolean verboseLogging;
         public List<ChatShortcut> chatShortcuts;
         public boolean pestsDebugLogging;

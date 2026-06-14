@@ -58,6 +58,7 @@ tasks.named("remapJar") {
     val t = this as org.gradle.api.tasks.bundling.AbstractArchiveTask
     t.archiveBaseName.set(jarBaseName)
     t.archiveFileName.set("$jarBaseName-$jarVersion.jar")
+    t.destinationDirectory.set(layout.buildDirectory.dir("libs"))
 }
 
 loom {
@@ -66,4 +67,5 @@ loom {
     }
     // Avoid applying transitive access wideners from deps (can cause invalid header if cache is stale)
     enableTransitiveAccessWideners.set(false)
+    accessWidenerPath.set(file("src/main/resources/farmhelperv2.accesswidener"))
 }

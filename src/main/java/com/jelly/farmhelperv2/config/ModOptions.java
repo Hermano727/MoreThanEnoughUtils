@@ -65,6 +65,14 @@ public final class ModOptions {
                 .build();
     }
 
+    /** Bingo section: utility helpers for Bingo activities. */
+    public static ConfigCategory bingoCategory() {
+        return ConfigCategory.createBuilder()
+                .name(Text.literal("Bingo"))
+                .group(ratDetectorGroup())
+                .build();
+    }
+
     private static OptionGroup freecamGroup() {
         return OptionGroup.createBuilder()
                 .name(Text.literal("Freecam"))
@@ -359,6 +367,61 @@ public final class ModOptions {
                                 .range(50, 2000)
                                 .step(50)
                                 .valueFormatter(val -> Text.literal(val + " ms")))
+                        .build())
+                .build();
+    }
+
+    private static OptionGroup ratDetectorGroup() {
+        return OptionGroup.createBuilder()
+                .name(Text.literal("Rat Detector"))
+                .description(OptionDescription.of(Text.literal(
+                        "Detect rat-related nametags and highlight them with world tracers."
+                )))
+                .option(Option.<Boolean>createBuilder()
+                        .name(Text.literal("Enable Rat Detector"))
+                        .description(OptionDescription.of(Text.literal("Scan nearby entities for rat name tags and cache matches.")))
+                        .binding(
+                                false,
+                                ModConfig::isRatDetectorEnabled,
+                                ModConfig::setRatDetectorEnabled
+                        )
+                        .controller(TickBoxControllerBuilder::create)
+                        .build())
+                .option(Option.<Boolean>createBuilder()
+                        .name(Text.literal("Draw rat tracers"))
+                        .description(OptionDescription.of(Text.literal("Draw world-space tracer lines to detected rat targets.")))
+                        .binding(
+                                true,
+                                ModConfig::isRatTracerEnabled,
+                                ModConfig::setRatTracerEnabled
+                        )
+                        .controller(TickBoxControllerBuilder::create)
+                        .build())
+                .option(Option.<Integer>createBuilder()
+                        .name(Text.literal("Detection range"))
+                        .description(OptionDescription.of(Text.literal("Maximum distance in blocks to scan for rat tags and targets.")))
+                        .binding(
+                                48,
+                                ModConfig::getRatDetectionRange,
+                                ModConfig::setRatDetectionRange
+                        )
+                        .controller(opt -> IntegerSliderControllerBuilder.create(opt)
+                                .range(16, 96)
+                                .step(1)
+                                .valueFormatter(val -> Text.literal(val + " blocks")))
+                        .build())
+                .option(Option.<Boolean>createBuilder()
+                        .name(Text.literal("Rat detector debug"))
+                        .description(OptionDescription.of(Text.literal(
+                                "Log each scan to latest.log and show a short chat hint every 8 scans (inRange / matches). "
+                                        + "Use when tracers show nothing to see whether any nametags are detected."
+                        )))
+                        .binding(
+                                false,
+                                ModConfig::isRatDetectorDebugLogging,
+                                ModConfig::setRatDetectorDebugLogging
+                        )
+                        .controller(TickBoxControllerBuilder::create)
                         .build())
                 .build();
     }

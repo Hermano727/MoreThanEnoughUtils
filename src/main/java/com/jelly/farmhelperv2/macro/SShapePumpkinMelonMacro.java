@@ -19,6 +19,7 @@ import net.minecraft.util.math.BlockPos;
 public class SShapePumpkinMelonMacro implements Macro {
 
     private static final float ROTATION_DEGREE = 45f;
+    private static final float TARGET_PITCH = -59f;
 
     private enum State {
         NONE, LEFT, RIGHT, SWITCHING_LANE
@@ -31,15 +32,16 @@ public class SShapePumpkinMelonMacro implements Macro {
     private State state = State.NONE;
     private ChangeLaneDirection changeLaneDirection = null;
     private float closest90Yaw = 0f;
-    private float pitch = -59f;
+    private float pitch = TARGET_PITCH;
 
     @Override
     public void onEnable(MinecraftClient client) {
         if (client.player == null)
             return;
 
+        client.player.sendMessage(ChatUtils.success("On 59f version!"), false);
         closest90Yaw = BlockUtils.snapYawToNearest90(client.player.getYaw());
-        pitch = -59f;
+        enforcePitch(client);
         state = calculateDirection(client);
         if (state == State.NONE) {
             client.player.sendMessage(ChatUtils.warning("Pumpkin/Melon: no direction found"), false);
@@ -49,6 +51,7 @@ public class SShapePumpkinMelonMacro implements Macro {
         float extra = state == State.LEFT ? (-ROTATION_DEGREE - (float) (Math.random() * 2))
                 : (ROTATION_DEGREE + (float) (Math.random() * 2));
         MovementUtils.applyRotation(client, closest90Yaw + extra, pitch);
+        enforcePitch(client);
 
         changeLaneDirection = null;
         applyKeys(client, state);
@@ -65,8 +68,11 @@ public class SShapePumpkinMelonMacro implements Macro {
         if (client.player == null || client.world == null)
             return;
 
+        enforcePitch(client);
         updateState(client);
+        enforcePitch(client);
         applyKeys(client, state);
+        enforcePitch(client);
     }
 
     @Override
@@ -98,7 +104,7 @@ public class SShapePumpkinMelonMacro implements Macro {
                     return; // stuck, keep current state
                 }
                 changeLaneDirection = ChangeLaneDirection.FORWARD;
-                pitch = -59f;
+                pitch = TARGET_PITCH;
                 float add = state == State.RIGHT ? -((float) (Math.random() * 0.4 + 0.2))
                         : ((float) (Math.random() * 0.4 + 0.2));
                 client.player.setYaw(closest90Yaw + add);
@@ -109,7 +115,7 @@ public class SShapePumpkinMelonMacro implements Macro {
                     return;
                 }
                 changeLaneDirection = ChangeLaneDirection.BACKWARD;
-                pitch = -59f;
+                pitch = TARGET_PITCH;
                 float add = state == State.RIGHT ? -((float) (Math.random() * 0.4 + 0.2))
                         : ((float) (Math.random() * 0.4 + 0.2));
                 client.player.setYaw(closest90Yaw + add);
@@ -129,12 +135,12 @@ public class SShapePumpkinMelonMacro implements Macro {
         if (state == State.SWITCHING_LANE) {
             if (WalkableHelper.isRightWalkable(client)) {
                 state = State.RIGHT;
-                pitch = -59f;
+                pitch = TARGET_PITCH;
                 MovementUtils.applyRotation(client, closest90Yaw + (ROTATION_DEGREE + (float) (Math.random() * 2)),
                         pitch);
             } else if (WalkableHelper.isLeftWalkable(client)) {
                 state = State.LEFT;
-                pitch = -59f;
+                pitch = TARGET_PITCH;
                 MovementUtils.applyRotation(client, closest90Yaw - (ROTATION_DEGREE + (float) (Math.random() * 2)),
                         pitch);
             } else if (WalkableHelper.isFrontWalkable(client)) {
@@ -160,13 +166,13 @@ public class SShapePumpkinMelonMacro implements Macro {
             case LEFT:
                 opt.leftKey.setPressed(true);
                 opt.rightKey.setPressed(false);
-                opt.forwardKey.setPressed(!WalkableHelper.isBackWalkable(client));
+                opt.forwardKey.setPressed(true);
                 opt.backKey.setPressed(false);
                 break;
             case RIGHT:
                 opt.leftKey.setPressed(false);
                 opt.rightKey.setPressed(true);
-                opt.forwardKey.setPressed(!WalkableHelper.isBackWalkable(client));
+                opt.forwardKey.setPressed(true);
                 opt.backKey.setPressed(false);
                 break;
             case SWITCHING_LANE:
@@ -178,6 +184,14 @@ public class SShapePumpkinMelonMacro implements Macro {
             default:
                 MovementUtils.stopAll(opt);
                 break;
+        }
+    }
+
+    private void enforcePitch(MinecraftClient client) {
+        if (client.player == null) return;
+        pitch = TARGET_PITCH;
+        if (Math.abs(client.player.getPitch() - TARGET_PITCH) > 0.01f) {
+            client.player.setPitch(TARGET_PITCH);
         }
     }
 

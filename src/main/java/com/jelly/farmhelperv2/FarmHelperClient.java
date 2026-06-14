@@ -4,6 +4,7 @@ import com.jelly.farmhelperv2.config.CropMacroType;
 import com.jelly.farmhelperv2.config.FarmHelperConfigScreen;
 import com.jelly.farmhelperv2.config.ModConfig;
 import com.jelly.farmhelperv2.config.RewarpPoint;
+import com.jelly.farmhelperv2.bingo.RatDetector;
 import com.jelly.farmhelperv2.fish.AutoFishing;
 import com.jelly.farmhelperv2.macro.Macro;
 import com.jelly.farmhelperv2.macro.SShapeMushroomMacro;
@@ -79,6 +80,14 @@ public final class FarmHelperClient {
     private static long lastRewarpTriggerTime = 0;
     /** Last tick we were standing on a rewarp block; only trigger /warp when we *enter* a rewarp (move onto it). */
     private static boolean wasOnRewarpLastTick = false;
+    /**
+     * After triggering /warp garden from a rewarp point, wait a short delay for teleport to complete,
+     * then tap forward briefly to re-enter the lane on vertical-style farms.
+     */
+    private static int postRewarpForwardDelayTicks = 0;
+    private static int postRewarpForwardTicksRemaining = 0;
+    private static final int POST_REWARP_FORWARD_DELAY_TICKS = 20; // ~1.0s
+    private static final int POST_REWARP_FORWARD_TICKS = 5;        // ~0.25s
 
     /** Last time (ms) the player broke a block; used to disable macro when no crop broken for >5s. */
     private static long lastCropBreakTimeMs = 0L;
@@ -224,6 +233,9 @@ public final class FarmHelperClient {
                 }
             }
 
+            // Rat detector updates a small target cache on tick; render layer consumes it later.
+            RatDetector.tick(mc);
+
             // Rewarp: only when player *moves onto* a saved point (not when adding or standing still on it), run /warp garden.
             if (!ModConfig.getRewarps().isEmpty() && mc.player != null && mc.world != null && !MteuFreecam.isActive()) {
                 BlockPos playerPos = mc.player.getBlockPos();
@@ -239,11 +251,18 @@ public final class FarmHelperClient {
                     mc.getNetworkHandler().sendChatMessage("/warp garden");
                     lastRewarpTriggerTime = now;
                     mc.player.sendMessage(ChatUtils.info("Rewarp: ran /warp garden"), false);
+                    if (enabled && currentMacro instanceof SShapeVerticalCropMacro) {
+                        ((SShapeVerticalCropMacro) currentMacro).requestRewarpSideSwapCheck();
+                        postRewarpForwardDelayTicks = POST_REWARP_FORWARD_DELAY_TICKS;
+                        postRewarpForwardTicksRemaining = 0;
+                    }
                 }
                 wasOnRewarpLastTick = onRewarpNow;
             } else {
                 wasOnRewarpLastTick = false;
             }
+
+            runPostRewarpForwardNudge(mc);
 
             // Consume dirty flag (config was saved); we do NOT re-register keybinds — Fabric only allows that at init.
             ModConfig.consumeChatShortcutsDirty();
@@ -307,6 +326,16 @@ public final class FarmHelperClient {
                 enabled = true;
                 lastCropBreakTimeMs = System.currentTimeMillis();
                 lastWorldRef = mc.world;
+                if (mc.player != null) {
+                    mc.player.sendMessage(
+                            ChatUtils.info("Selected crop type: " + ModConfig.getCropType().name()),
+                            false
+                    );
+                    mc.player.sendMessage(
+                            ChatUtils.info("Starting macro: " + currentMacro.getClass().getSimpleName()),
+                            false
+                    );
+                }
                 currentMacro.onEnable(mc);
                 // Most macros want a strict yaw/pitch lock so staff checks can't rotate you.
                 // The sugarcane S-shape macro intentionally rotates 180° at lane ends, so skip the lock for it.
@@ -506,7 +535,7 @@ public final class FarmHelperClient {
                 );
             } else if (mc.getSoundManager() != null) {
                 mc.getSoundManager().play(
-                        PositionedSoundInstance.master(SoundEvents.BLOCK_BELL_USE, 1.0f)
+                        PositionedSoundInstance.ui(SoundEvents.BLOCK_BELL_USE, 1.0f, 1.0f)
                 );
             }
         }
@@ -538,6 +567,14 @@ public final class FarmHelperClient {
         return enabled;
     }
 
+    public static String getCurrentCropTypeName() {
+        return ModConfig.getCropType().name();
+    }
+
+    public static String getCurrentMacroName() {
+        return currentMacro != null ? currentMacro.getClass().getSimpleName() : "none";
+    }
+
     private static void checkJawbusMessage(String text) {
         if (text == null) return;
         String trimmed = text.trim();
@@ -557,6 +594,8 @@ public final class FarmHelperClient {
     private static void disableMacro(MinecraftClient mc, Text reason) {
         enabled = false;
         lastWorldRef = null;
+        postRewarpForwardDelayTicks = 0;
+        postRewarpForwardTicksRemaining = 0;
         if (currentMacro != null) {
             currentMacro.onDisable(mc);
             currentMacro = null;
@@ -564,6 +603,37 @@ public final class FarmHelperClient {
         rotationLockActive = false;
         if (mc.player != null && reason != null) {
             mc.player.sendMessage(reason, false);
+        }
+    }
+
+    /**
+     * For vertical macros only: after rewarp command, briefly press forward once teleport settles.
+     */
+    private static void runPostRewarpForwardNudge(MinecraftClient mc) {
+        if (mc.player == null || MteuFreecam.isActive()) {
+            postRewarpForwardDelayTicks = 0;
+            postRewarpForwardTicksRemaining = 0;
+            return;
+        }
+        if (!enabled || !(currentMacro instanceof SShapeVerticalCropMacro)) {
+            postRewarpForwardDelayTicks = 0;
+            postRewarpForwardTicksRemaining = 0;
+            return;
+        }
+        if (postRewarpForwardDelayTicks > 0) {
+            postRewarpForwardDelayTicks--;
+            if (postRewarpForwardDelayTicks == 0) {
+                postRewarpForwardTicksRemaining = POST_REWARP_FORWARD_TICKS;
+            }
+            return;
+        }
+        if (postRewarpForwardTicksRemaining > 0) {
+            postRewarpForwardTicksRemaining--;
+            mc.options.forwardKey.setPressed(true);
+            mc.options.backKey.setPressed(false);
+            mc.options.leftKey.setPressed(false);
+            mc.options.rightKey.setPressed(false);
+            mc.options.sprintKey.setPressed(true);
         }
     }
 }

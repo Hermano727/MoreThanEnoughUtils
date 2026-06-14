@@ -161,7 +161,7 @@ public final class ChatShortcutsEditorScreen extends Screen {
     }
 
     private void reinit() {
-        init(client, width, height);
+        clearAndInit();
     }
 
     private void startListening(int slot) {

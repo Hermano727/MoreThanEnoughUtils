@@ -22,8 +22,8 @@ import net.minecraft.util.math.BlockPos;
  */
 public class SShapeVerticalCropMacro implements Macro {
 
-    /** Alternate starting direction each time the macro is re-enabled (instance-level, not shared). */
-    private boolean nextStartLeft = true;
+    /** Alternate starting direction each time the macro is re-enabled across toggles. */
+    private static boolean nextStartLeft = true;
 
     private boolean goingLeft = true;
 
@@ -38,6 +38,8 @@ public class SShapeVerticalCropMacro implements Macro {
     private int stateTicks = 0;
     private int postSwapCooldownTicks = 0;
     private int initialGraceTicks = 0;
+    /** Rewarp-only hook: when true, allow one side-block-based A/D swap check at farm start. */
+    private boolean pendingRewarpSideSwapCheck = false;
     /** MelonkingDE: counts ticks where sideways movement has effectively stopped while strafing. */
     private int stoppedStrafingTicks = 0;
     /** MelonkingDE: previous player position, used to measure sideways movement. */
@@ -58,6 +60,8 @@ public class SShapeVerticalCropMacro implements Macro {
     private static final int MIN_CROP_BLOCKS_AHEAD = 3;
     /** Debug: log WalkableHelper state every this many ticks when in NORMAL (0 = disabled). */
     private static final int DEBUG_INTERVAL_TICKS = 40;
+    /** Look pitch for nether wart / carrot / potato style vertical rows (degrees). */
+    private static final float VERTICAL_MACRO_PITCH = 2.6f;
 
     /**
      * If true, use end-of-lane detection (front walkable → walk forward → swap).
@@ -73,12 +77,13 @@ public class SShapeVerticalCropMacro implements Macro {
         stateTicks = 0;
         postSwapCooldownTicks = 0;
         initialGraceTicks = INITIAL_GRACE_TICKS;
+        pendingRewarpSideSwapCheck = false;
         stoppedStrafingTicks = 0;
         walkingIntoLaneAfterSwap = false;
 
         if (client.player != null) {
             float targetYaw = BlockUtils.snapYawToNearest90(client.player.getYaw());
-            MovementUtils.applyRotation(client, targetYaw, 0.0f);
+            MovementUtils.applyRotation(client, targetYaw, VERTICAL_MACRO_PITCH);
 
             // Initialize last position for MelonkingDE movement-based detection.
             lastPosX = client.player.getX();
@@ -141,8 +146,18 @@ public class SShapeVerticalCropMacro implements Macro {
                 } else if (postSwapCooldownTicks > 0) {
                     postSwapCooldownTicks--;
                 } else {
+                    if (pendingRewarpSideSwapCheck && useEndOfLaneDetection()) {
+                        pendingRewarpSideSwapCheck = false;
+                        if (isStrafingSideBlocked(client, goingLeft)) {
+                            goingLeft = !goingLeft;
+                            postSwapCooldownTicks = POST_SWAP_GRACE_TICKS_END_OF_LANE;
+                            stoppedStrafingTicks = 0;
+                            debugState(client, "rewarp start detected side block → swapping to "
+                                    + (goingLeft ? "LEFT (A)" : "RIGHT (D)"));
+                        }
+                    }
                     if (useEndOfLaneDetection()) {
-                        handleMelonkingEndOfLaneDetection(client, left, right);
+                        handleMelonkingEndOfLaneDetection(client, goingLeft, !goingLeft);
                     } else {
                         // Nether wart: side block hit → hold then swap
                         if (isStrafingSideBlocked(client, goingLeft)) {
@@ -240,6 +255,14 @@ public class SShapeVerticalCropMacro implements Macro {
                     false
             );
         }
+    }
+
+    /**
+     * Called by rewarp flow: enable one-time side-block check in NORMAL state.
+     * Only consumed when end-of-lane detection mode is active (MelonkingDE).
+     */
+    public void requestRewarpSideSwapCheck() {
+        pendingRewarpSideSwapCheck = true;
     }
 
     /**
